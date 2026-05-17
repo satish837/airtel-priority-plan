@@ -24,13 +24,23 @@
     return document.getElementById(id);
   }
 
+  function refreshRunHud() {
+    if (!runHud) return;
+    var panelActive = document.querySelector(".panel.panel-active");
+    var onOverlay =
+      panelActive &&
+      panelActive.id !== undefined &&
+      panelActive.id !== "";
+    var playing = sessionStarted && !onOverlay;
+    runHud.classList.toggle("hidden", !playing);
+    runHud.setAttribute("aria-hidden", playing ? "false" : "true");
+  }
+
   function showPanel(id) {
     document.querySelectorAll(".panel").forEach(function (p) {
       p.classList.toggle("panel-active", p.id === id);
     });
-    var playing = id === null && sessionStarted && gameLoaded;
-    runHud.classList.toggle("hidden", !playing);
-    runHud.setAttribute("aria-hidden", playing ? "false" : "true");
+    refreshRunHud();
   }
 
   function postToGame(msg) {
@@ -159,14 +169,22 @@
     switch (e.data.type) {
       case "airtel:ready":
         gameReady = true;
-        if (sessionStarted) gameLoaded = true;
+        if (sessionStarted) {
+          gameLoaded = true;
+          refreshRunHud();
+        }
         break;
       case "airtel:loaded":
         gameLoaded = true;
         $("btn-start-register").disabled = false;
-        if (sessionStarted) $("register-error").textContent = "";
+        if (sessionStarted) {
+          $("register-error").textContent = "";
+          refreshRunHud();
+          renderLetters(e.data.collected || []);
+        }
         break;
       case "airtel:hud":
+        refreshRunHud();
         renderLetters(e.data.collected);
         $("hud-coins").textContent = String(e.data.coins || 0);
         if (e.data.phase === "fastlane") {
@@ -225,6 +243,13 @@
     updateReplays();
     reloadGameFrame(function () {
       beginPlayUi();
+      /* Extra start-session posts after iframe boot (Play Again) */
+      setTimeout(function () {
+        postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+      }, 1200);
+      setTimeout(function () {
+        postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+      }, 2800);
     });
   });
 
