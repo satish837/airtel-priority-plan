@@ -8,7 +8,6 @@
   var LETTERS = ["P", "R", "I", "O", "R", "I", "T", "Y"];
   var FAST_LANE_SEC = 60;
   var PRIORITY_KEY = "airtel_priority_v1";
-
   var state = {
     active: false,
     collected: {},
@@ -16,6 +15,7 @@
     nextIndex: 0,
     fastLane: false,
     fastLaneEnd: 0,
+    didFastLane: false,
     coins: 0,
     fastLaneCoins: 0,
     lastScore: 0,
@@ -54,6 +54,7 @@
     state.nextIndex = 0;
     state.fastLane = false;
     state.fastLaneEnd = 0;
+    state.didFastLane = false;
     state.coins = 0;
     state.fastLaneCoins = 0;
     for (var i = 0; i < LETTERS.length; i++) {
@@ -97,7 +98,7 @@
   }
 
   function priorityPoints() {
-    return collectedCount() * 10 + (state.fastLane ? 50 : 0);
+    return collectedCount() * 10 + (state.didFastLane || state.fastLane ? 50 : 0);
   }
 
   function nextNeeded() {
@@ -149,14 +150,19 @@
     post("airtel:session-end", {});
   }
 
-  /** Mission complete or death while nitro is active — stop countdown immediately. */
+  /** Death or native level/mission end while Fast Lane nitro is active. */
   function checkRunEndDuringFastLane(app) {
     if (!state.active || gameOverSent || !state.fastLane) return false;
     if (typeof GameState === "undefined") return false;
     var gs = readGameState(findGameStateController(app));
-    if (!gameplayWasRunning || !gs) return false;
-    if (gs === GameState.FINISHED || gs === GameState.DEAD) {
-      endSession(gs === GameState.DEAD ? "crash" : "complete", app);
+    if (!gs) return false;
+
+    if (gs === GameState.DEAD) {
+      endSession("crash", app);
+      return true;
+    }
+    if (gs === GameState.FINISHED) {
+      endSession("complete", app);
       return true;
     }
     return false;
@@ -274,6 +280,7 @@
     if (state.fastLane) return;
     stopPriorityCollection();
     state.fastLane = true;
+    state.didFastLane = true;
     state.fastLaneEnd = Date.now() + FAST_LANE_SEC * 1000;
     saveProgress();
     post("airtel:flash", { message: "Fast Lane Unlocked!" });
@@ -387,7 +394,7 @@
       fastLaneCoins: state.fastLaneCoins,
       priorityPoints: priorityPoints(),
       lettersCollected: collectedCount(),
-      fastLaneUnlocked: state.fastLane
+      fastLaneUnlocked: state.didFastLane
     };
   }
 
@@ -395,10 +402,10 @@
     stopPriorityCollection();
     clearEndTimers();
     restoreObstacleSettings(app);
+    var payload = buildGameOverPayload(reason);
     state.fastLane = false;
     state.fastLaneEnd = 0;
     notifyRunEnded();
-    var payload = buildGameOverPayload(reason);
 
     if (!gameOverSent) {
       if (!state.active) {
@@ -416,23 +423,22 @@
     postGameOver(payload);
   }
 
-  /** Mission distance reached or level success — show Airtel summary (not native mission UI). */
-  function onRunCompleted(app) {
+  /**
+   * Native mission/level complete — only show Airtel summary after Fast Lane,
+   * or unlock Fast Lane once all PRIORITY letters are collected.
+   */
+  function onNativeMissionComplete(app) {
     app = app || getApp();
     if (!state.active || gameOverSent) return;
-    stopPriorityCollection();
 
-    if (state.fastLane) {
+    if (state.fastLane || state.didFastLane) {
       endSession("complete", app);
       return;
     }
 
     if (allCollected()) {
       enterFastLane(app);
-      return;
     }
-
-    endSession("complete", app);
   }
 
   function getApp() {
@@ -461,7 +467,7 @@
       endSession("crash", getApp());
     }
     if (event === "EVENT_LEVELSUCCESS") {
-      onRunCompleted(getApp());
+      onNativeMissionComplete(getApp());
     }
   }
 
@@ -487,7 +493,7 @@
         onLetterCollected(letter);
       });
       app.on(EventTypes.MISSION_COMPLETED, function () {
-        onRunCompleted(app);
+        onNativeMissionComplete(app);
       });
     }
 
@@ -927,6 +933,7 @@
     state.lastScore = 0;
     state.fastLane = false;
     state.fastLaneEnd = 0;
+    state.didFastLane = false;
     state._savedTossDistance = undefined;
     haltLetters();
   }

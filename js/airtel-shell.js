@@ -213,7 +213,7 @@
         hideRunHud();
         break;
       case "airtel:hud":
-        if (runEnded || e.data.phase === "ended") {
+        if (runEnded || !sessionStarted || e.data.phase === "ended") {
           hideRunHud();
           break;
         }
