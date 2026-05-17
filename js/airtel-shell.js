@@ -121,6 +121,7 @@
   }
 
   function showGameOver(data) {
+    if (!data) return;
     postToGame({ type: "airtel:stop-letters" });
     sessionStarted = false;
     setGameFrameVisible(false);

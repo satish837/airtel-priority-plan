@@ -71,6 +71,16 @@
     } catch (e) {}
   }
 
+  function postGameOver(payload) {
+    var n = 0;
+    function send() {
+      post("airtel:gameover", payload);
+      n++;
+      if (n < 6) setTimeout(send, 350);
+    }
+    send();
+  }
+
   function collectedSnapshot() {
     return LETTERS.map(function (ch, i) {
       return !!state.collected[ch + i];
@@ -191,24 +201,52 @@
     } catch (e) {}
   }
 
-  function endSession(reason, app) {
-    haltLetters();
-    if (gameOverSent) return;
-    if (!state.active) return;
-    gameOverSent = true;
-    state.active = false;
-    pauseGame(app);
-    post("airtel:gameover", {
+  var deathEndTimer = null;
+
+  function clearEndTimers() {
+    if (deathEndTimer) {
+      clearTimeout(deathEndTimer);
+      deathEndTimer = null;
+    }
+  }
+
+  function buildGameOverPayload(reason) {
+    return {
       reason: reason,
       coins: state.coins,
       fastLaneCoins: state.fastLaneCoins,
       priorityPoints: priorityPoints(),
       lettersCollected: collectedCount(),
       fastLaneUnlocked: state.fastLane
-    });
+    };
+  }
+
+  function endSession(reason, app) {
+    haltLetters();
+    clearEndTimers();
+    if (gameOverSent) return;
+    if (!state.active) return;
+    gameOverSent = true;
+    state.active = false;
+    pauseGame(app);
+    postGameOver(buildGameOverPayload(reason));
     try {
       localStorage.removeItem(PRIORITY_KEY);
     } catch (e) {}
+  }
+
+  /** Mission distance reached or level success — show Airtel summary (not native mission UI). */
+  function onRunCompleted(app) {
+    app = app || getApp();
+    if (!state.active || gameOverSent) return;
+    if (state.fastLane) return;
+
+    if (allCollected()) {
+      enterFastLane(app);
+      return;
+    }
+
+    endSession("complete", app);
   }
 
   function getApp() {
@@ -220,6 +258,40 @@
     return null;
   }
 
+  function handleAnalyticsEvent(event, params) {
+    params = params || {};
+    if (!state.active || gameOverSent) return;
+    if (event === "EVENT_LIVESCORE" || event === "EVENT_TOTALSCORE") {
+      var score = params.liveScore || params.totalScore || 0;
+      if (score > state.lastScore) {
+        var delta = score - state.lastScore;
+        state.lastScore = score;
+        if (state.fastLane) state.fastLaneCoins += delta;
+        else state.coins = score;
+        pushHud();
+      }
+    }
+    if (event === "EVENT_LEVELFAIL") {
+      endSession("crash", getApp());
+    }
+    if (event === "EVENT_LEVELSUCCESS") {
+      onRunCompleted(getApp());
+    }
+  }
+
+  function installAnalyticsHook() {
+    if (!window.famobi_analytics) return false;
+    var current = window.famobi_analytics.trackEvent;
+    if (current && current._airtelWrapped) return true;
+    var orig = current;
+    window.famobi_analytics.trackEvent = function (event, params) {
+      handleAnalyticsEvent(event, params);
+      return orig.apply(this, arguments);
+    };
+    window.famobi_analytics.trackEvent._airtelWrapped = true;
+    return true;
+  }
+
   function hookApp(app) {
     if (!app || state.hooked) return;
     state.hooked = true;
@@ -227,6 +299,9 @@
     if (typeof EventTypes !== "undefined") {
       app.on(EventTypes.COLLECT_LETTER, function (letter) {
         onLetterCollected(letter);
+      });
+      app.on(EventTypes.MISSION_COMPLETED, function () {
+        onRunCompleted(app);
       });
     }
 
@@ -239,36 +314,7 @@
   }
 
   function hookAnalytics() {
-    if (!window.famobi_analytics || window.famobi_analytics._airtelHooked) return;
-    var orig = window.famobi_analytics.trackEvent;
-    window.famobi_analytics._airtelHooked = true;
-    window.famobi_analytics.trackEvent = function (event, params) {
-      params = params || {};
-      if (state.active) {
-        if (event === "EVENT_LIVESCORE" || event === "EVENT_TOTALSCORE") {
-          var score = params.liveScore || params.totalScore || 0;
-          if (score > state.lastScore) {
-            var delta = score - state.lastScore;
-            state.lastScore = score;
-            if (state.fastLane) state.fastLaneCoins += delta;
-            else state.coins = score;
-            pushHud();
-          }
-        }
-        if (event === "EVENT_LEVELFAIL") {
-          haltLetters();
-          endSession("crash", getApp());
-        }
-        if (event === "EVENT_LEVELSUCCESS") {
-          if (!state.fastLane && allCollected()) {
-            enterFastLane(getApp());
-          } else if (!state.fastLane) {
-            endSession("complete", getApp());
-          }
-        }
-      }
-      return orig.apply(this, arguments);
-    };
+    installAnalyticsHook();
   }
 
   function waitForGame(cb) {
@@ -485,18 +531,20 @@
       return;
     }
 
-    if (gameplayWasRunning && gs === GameState.DEAD && state.active) {
-      endSession("crash", app);
-      return;
+    if (gameplayWasRunning && gs === GameState.RUNNING && deathEndTimer) {
+      clearTimeout(deathEndTimer);
+      deathEndTimer = null;
     }
 
-    if (
-      gameplayWasRunning &&
-      gs === GameState.FINISHED &&
-      state.active &&
-      !state.fastLane
-    ) {
-      endSession("complete", app);
+    if (gameplayWasRunning && gs === GameState.DEAD && state.active && !deathEndTimer) {
+      deathEndTimer = setTimeout(function () {
+        deathEndTimer = null;
+        if (!state.active || gameOverSent) return;
+        var now = readGameState(findGameStateController(app));
+        if (now === GameState.DEAD) {
+          endSession("crash", app);
+        }
+      }, 2200);
     }
   }
 
@@ -523,6 +571,10 @@
   function beginRunUnstick(app) {
     var ticks = 0;
     var id = setInterval(function () {
+      if (gameOverSent) {
+        clearInterval(id);
+        return;
+      }
       ticks++;
       try {
         app.timeScale = 1;
@@ -548,6 +600,7 @@
       sessionStarted = true;
       gameplayWasRunning = false;
       gameOverSent = false;
+      clearEndTimers();
       resetProgress();
       loadProgress();
       state.active = true;
@@ -637,6 +690,9 @@
   function signalLoaded() {
     post("airtel:loaded");
   }
+
+  installAnalyticsHook();
+  setInterval(installAnalyticsHook, 1500);
 
   waitForGame(function (app) {
     hookApp(app);
