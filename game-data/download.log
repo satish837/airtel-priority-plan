@@ -1,0 +1,37 @@
+Fetching config.json …
+Files to fetch: 2126  →  /Users/administrator/Downloads/subway-surfers-kinda/dist/game-data
+  [100/2126] ok=86 skip=5 fail=9
+  [200/2126] ok=182 skip=5 fail=13
+  [300/2126] ok=264 skip=5 fail=31
+  [400/2126] ok=347 skip=6 fail=47
+  [500/2126] ok=434 skip=7 fail=59
+  [600/2126] ok=520 skip=7 fail=73
+  [700/2126] ok=611 skip=8 fail=81
+  [800/2126] ok=703 skip=9 fail=88
+  [900/2126] ok=783 skip=9 fail=108
+  [1000/2126] ok=847 skip=9 fail=144
+  [1100/2126] ok=945 skip=9 fail=146
+  [1200/2126] ok=1042 skip=9 fail=149
+  [1300/2126] ok=1130 skip=9 fail=161
+  [1400/2126] ok=1209 skip=9 fail=182
+  [1500/2126] ok=1271 skip=9 fail=220
+  [1600/2126] ok=1344 skip=9 fail=247
+  [1700/2126] ok=1400 skip=9 fail=291
+  [1800/2126] ok=1453 skip=9 fail=338
+  [1900/2126] ok=1534 skip=9 fail=357
+  [2000/2126] ok=1605 skip=9 fail=386
+  [2100/2126] ok=1681 skip=9 fail=410
+  [2126/2126] ok=1698 skip=9 fail=419
+
+Done. ok=1698 skipped=9 failed=419
+First failures:
+   files/assets/45188847/1/SR_Particle_Atlas_Frame03.png → HTTP Error 404: Not Found
+   files/assets/45188834/1/SR_Particle_Atlas_Frame05.png → HTTP Error 404: Not Found
+   files/assets/45188860/1/texture_obstacle-electric_truck_MRA.jpg → HTTP Error 404: Not Found
+   files/assets/45188857/1/SR_Particle_Atlas_Row14_Frame7.png → HTTP Error 404: Not Found
+   files/assets/45188870/1/texture_obstacle-machine_H2.jpeg → HTTP Error 404: Not Found
+   files/assets/45188912/1/lightmap_Lane-factory.png → HTTP Error 404: Not Found
+   files/assets/45188947/1/lightmap_prop-mushroom.png → HTTP Error 404: Not Found
+   files/assets/45188968/1/texture_prop-plaque2.jpg → HTTP Error 404: Not Found
+   files/assets/45188900/1/lightmap_prop-big_monitor.png → HTTP Error 404: Not Found
+   files/assets/45189030/1/texture_scooter_robo_kid.png → HTTP Error 404: Not Found

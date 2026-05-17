@@ -1,0 +1,38 @@
+#airtel-letter-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.airtel-world-letter {
+  position: absolute;
+  top: -12%;
+  width: 52px;
+  height: 52px;
+  margin-left: -26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 1.35rem;
+  color: #fff;
+  background: linear-gradient(145deg, #ff6b00, #e60000);
+  border: 3px solid #ffeb3b;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.airtel-world-letter.airtel-letter-pulse {
+  animation: airtel-letter-pulse 0.35s ease-out;
+}
+
+@keyframes airtel-letter-pulse {
+  50% {
+    transform: scale(1.25);
+  }
+}

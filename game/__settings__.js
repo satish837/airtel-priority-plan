@@ -1,0 +1,56 @@
+(function () {
+  var CDN =
+    "https://omnomrun.h5games.usercontent.goog/v/09a49b6f-99b7-4a51-ad16-69cf656925ff/";
+  var host = typeof location !== "undefined" ? location.hostname : "";
+  var localDev = /^(localhost|127\.0\.0\.1)$/.test(host);
+  /* Prefer downloaded assets (game-data/) when manifest exists */
+  var useLocal =
+    localDev &&
+    (function () {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open("HEAD", "/game-data/manifest.json", false);
+        xhr.send();
+        return xhr.status === 200;
+      } catch (e) {
+        return false;
+      }
+    })();
+  var prefix = useLocal ? "/game-data/" : localDev ? "/cdn/" : CDN;
+
+  window.ASSET_PREFIX = prefix;
+  window.SCRIPT_PREFIX = prefix;
+  window.AIRTEL_USE_LOCAL_ASSETS = useLocal;
+})();
+
+SCENE_PATH = "1121883.json";
+CONTEXT_OPTIONS = {
+  antialias: true,
+  alpha: false,
+  preserveDrawingBuffer: false,
+  preferWebGl2: true,
+  powerPreference: "high-performance"
+};
+SCRIPTS = [ 45190544, 45189660, 45189012, 45192629, 45190213, 45190465, 45192777, 45192787, 45190438, 45189878, 45191459, 45191362, 45192698, 45189537, 45189624, 45189212, 45190686, 45188831, 45188841, 45190462, 45190550, 45190600, 45192540, 45192775, 45189614, 45192786, 45190166, 45191540, 45189240, 45191616, 45189023, 45188974, 45189204, 45189037, 45189209, 45192779, 45189928, 45188859, 45190046, 45190333, 45190192, 45188817, 45190037, 45192634, 45189527, 45192765, 45190335, 45192772, 45190497, 45192693, 45191860, 45189038, 45189925, 45192770, 45188814, 45189813, 45189451, 45188833, 45189291, 45189414, 45190322, 45190951, 45192009, 45189016, 45190677, 45190379, 45191705, 45189597, 45191652, 45189929, 45192771, 45192648, 45192773, 45190066, 45188873, 45189932, 45189062, 45192615, 45191587, 45189818, 45190019, 45191694, 45188815, 45190393, 45192520, 45189934, 45190458, 45189622, 45190165, 45189294, 45190160, 45189218, 45188872, 45189497, 45191414, 45190378, 45191358, 45189491, 45189215, 45192654, 45192444, 45189589, 45189834, 45192603, 45189270, 45190317, 45190366, 45192058, 45191282, 45189036, 45191888, 45190323, 45189303, 45189558, 45192607, 45192208, 45192623, 45190525, 45191863, 45190239, 45190446, 45190627, 45192766, 45190163, 45192764, 45189020, 45189776, 45716245, 46692690 ];
+CONFIG_FILENAME = "config.json";
+INPUT_SETTINGS = {
+  useKeyboard: true,
+  useMouse: true,
+  useGamepads: false,
+  useTouch: true
+};
+pc.script.legacy = false;
+PRELOAD_MODULES = [
+  {
+    moduleName: "Ammo",
+    glueUrl: "files/assets/45190263/1/ammo.wasm.js",
+    wasmUrl: "files/assets/45189122/1/ammo.wasm.wasm",
+    fallbackUrl: "files/assets/45189611/1/ammo.js"
+  },
+  {
+    moduleName: "BASIS",
+    glueUrl: "files/assets/45189856/1/basis.wasm.js",
+    wasmUrl: "files/assets/45190491/1/basis.wasm.wasm",
+    fallbackUrl: "files/assets/45188911/1/basis.js"
+  }
+];

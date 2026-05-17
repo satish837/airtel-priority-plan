@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Airtel Fast Lane Challenge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/airtel-shell.css">
+  <script src="block-ads.js"></script>
+</head>
+<body>
+  <div id="airtel-splash" class="airtel-splash">
+    <img src="images/airtel.png" alt="Airtel">
+  </div>
+
+  <div id="shell">
+    <iframe
+      id="game-frame"
+      title="Airtel Fast Lane Challenge"
+      src="game/index.html?origin=https%3A%2F%2Fgamesnacks.com&amp;gameCenterId=gamesnacks"
+      allow="autoplay"
+    ></iframe>
+
+    <!-- Registration gate (before play) -->
+    <section id="panel-register" class="panel panel-active" aria-label="Registration">
+      <div class="panel-inner">
+        <header class="brand-header">
+          <img src="images/logo-white.png" alt="Airtel">
+          <h1>Fast Lane Challenge</h1>
+          <p>Collect PRIORITY Points · Unlock the Fast Lane</p>
+        </header>
+        <div class="card">
+          <h2>Enter your details</h2>
+          <div class="field">
+            <label for="reg-name">Name</label>
+            <input id="reg-name" type="text" autocomplete="name" placeholder="Your name">
+          </div>
+          <div class="field">
+            <label for="reg-phone">Phone number</label>
+            <input id="reg-phone" type="tel" inputmode="numeric" placeholder="10-digit mobile">
+          </div>
+          <div class="field">
+            <label for="reg-store">Store ID</label>
+            <input id="reg-store" type="text" placeholder="Store ID">
+          </div>
+          <p id="register-error" class="error"></p>
+          <button type="button" class="btn btn-primary" id="btn-start-register">Start Challenge</button>
+        </div>
+        <ul class="instructions">
+          <li>Game Name— swipe to dodge obstacles &amp; collect letters</li>
+          <li>Spell <strong>PRIORITY</strong> — missed letters respawn in the run</li>
+          <li>Unlock 60s Fast Lane nitro coin rush when complete</li>
+        </ul>
+        <p class="meta" id="replays-left" hidden></p>
+        <button type="button" class="btn btn-ghost" id="btn-show-leaderboard">View Leaderboard</button>
+      </div>
+    </section>
+
+    <!-- In-run HUD (over iframe) -->
+    <div id="run-hud" class="run-hud hidden" aria-hidden="true">
+      <div id="letter-track" class="letter-track"></div>
+      <span id="hud-phase">Collect PRIORITY</span>
+      <span id="hud-coins">0</span>
+      <span id="hud-timer" class="hidden">60s</span>
+    </div>
+
+    <!-- Game over -->
+    <section id="panel-gameover" class="panel" aria-label="Game over">
+      <div class="panel-inner">
+        <header class="brand-header">
+          <img src="images/logo-white.png" alt="Airtel">
+          <h1 id="go-title">Game Over</h1>
+        </header>
+        <div class="card">
+          <h2>Priority points summary</h2>
+          <div class="stats-grid">
+            <div class="stat"><div class="val" id="go-coins">0</div><div class="lbl">Total coins</div></div>
+            <div class="stat"><div class="val" id="go-priority">0</div><div class="lbl">Priority points</div></div>
+            <div class="stat"><div class="val" id="go-letters">0 / 8</div><div class="lbl">Letters</div></div>
+            <div class="stat"><div class="val" id="go-fastlane">—</div><div class="lbl">Fast Lane</div></div>
+          </div>
+        </div>
+        <div class="promo-box">
+          <strong>Priority Postpaid</strong>
+          <p id="promo-nugget"></p>
+        </div>
+        <p id="replay-msg" class="meta"></p>
+        <button type="button" class="btn btn-primary" id="btn-play-again">Play Again</button>
+        <button type="button" class="btn btn-secondary" id="btn-go-leaderboard">Leaderboard</button>
+        <button type="button" class="btn btn-ghost" id="btn-back-register">Back</button>
+      </div>
+    </section>
+
+    <!-- Leaderboard -->
+    <section id="panel-leaderboard" class="panel" aria-label="Leaderboard">
+      <div class="panel-inner">
+        <header class="brand-header">
+          <img src="images/logo-white.png" alt="Airtel">
+          <h1>Daily Leaderboard</h1>
+          <p>Ranked by max coins collected today</p>
+        </header>
+        <p id="daily-winner" class="daily-winner"></p>
+        <ul id="leaderboard-list" class="card leaderboard-list"></ul>
+        <button type="button" class="btn btn-primary" id="btn-back-home">Back to Home</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/airtel-shell.js"></script>
+</body>
+</html>

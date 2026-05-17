@@ -1,0 +1,19 @@
+{
+  "cdn": "https://omnomrun.h5games.usercontent.goog/v/09a49b6f-99b7-4a51-ad16-69cf656925ff/",
+  "downloadedAt": "2026-05-17T08:03:02Z",
+  "total": 8,
+  "ok": 0,
+  "skipped": 8,
+  "failed": 0,
+  "paths": [
+    "1121883.json",
+    "__game-scripts.js",
+    "files/assets/45188911/1/basis.js",
+    "files/assets/45189122/1/ammo.wasm.wasm",
+    "files/assets/45189611/1/ammo.js",
+    "files/assets/45189856/1/basis.wasm.js",
+    "files/assets/45190263/1/ammo.wasm.js",
+    "files/assets/45190491/1/basis.wasm.wasm"
+  ],
+  "failures": []
+}
