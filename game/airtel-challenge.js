@@ -19,7 +19,8 @@
     coins: 0,
     fastLaneCoins: 0,
     lastScore: 0,
-    hooked: false
+    hooked: false,
+    _savedTossDistance: undefined
   };
 
   function saveProgress() {
@@ -125,6 +126,114 @@
     });
   }
 
+  function findTossObstacleEventNames() {
+    var events = [];
+    if (typeof EventTypes === "undefined") return events;
+    try {
+      for (var key in EventTypes) {
+        if (!Object.prototype.hasOwnProperty.call(EventTypes, key)) continue;
+        var bucket = EventTypes[key];
+        if (!bucket || typeof bucket !== "object") continue;
+        if (bucket.TOSS_NEARBY_OBSTACLES) events.push(bucket.TOSS_NEARBY_OBSTACLES);
+        if (bucket.TOSS_OBSTACLES_WITHIN_RANGE) {
+          events.push(bucket.TOSS_OBSTACLES_WITHIN_RANGE);
+        }
+      }
+    } catch (e) {}
+    return events;
+  }
+
+  function isObstacleEntityName(name) {
+    if (!name) return false;
+    if (/coin|letter|collectable|collectible|powerup|magnet|player|character|nom|camera|ui|hud|shadow|ground|road|lane|sky|bg_|splash/i.test(name)) {
+      return false;
+    }
+    return /obstacle|truck|fence|log_|barrier|train|bus|trafficsign|ropefence|portal|melon|harvest|wall_entrance|prop-(?!generic_shadow)/i.test(
+      name
+    );
+  }
+
+  function disableObstacleEntity(ent) {
+    if (!ent) return;
+    try {
+      ent.enabled = false;
+      if (ent.collision) ent.collision.enabled = false;
+      if (ent.rigidbody) ent.rigidbody.enabled = false;
+      if (ent.model) ent.model.enabled = false;
+    } catch (e) {}
+  }
+
+  function clearBlocksContainerObstacles(app) {
+    if (!app || !app.root) return;
+    try {
+      var level = app.root.findByName("Level");
+      if (!level) return;
+      level.find(function (ent) {
+        if (ent.name !== "BlocksContainer") return;
+        ent.find(function (child) {
+          if (isObstacleEntityName(child.name)) {
+            disableObstacleEntity(child);
+            return;
+          }
+          child.find(function (deep) {
+            if (isObstacleEntityName(deep.name)) disableObstacleEntity(deep);
+          });
+        });
+      });
+    } catch (e) {}
+  }
+
+  function callTossObstaclesOnCharacter(app) {
+    if (!app || !app.root) return;
+    try {
+      var level = app.root.findByName("Level");
+      var player = level && level.findByName("PlayerContainer");
+      if (!player || !player.script) return;
+      var names = [
+        "characterController",
+        "characterCollisionController",
+        "characterMovementController"
+      ];
+      names.forEach(function (scriptName) {
+        var sc = player.script[scriptName];
+        if (sc && typeof sc.tossObstacles === "function") {
+          sc.tossObstacles();
+        }
+      });
+    } catch (e) {}
+  }
+
+  function clearFastLaneObstacles(app) {
+    if (!app) return;
+    var tossEvents = findTossObstacleEventNames();
+    tossEvents.forEach(function (evt) {
+      try {
+        app.fire(evt);
+      } catch (e) {}
+    });
+    callTossObstaclesOnCharacter(app);
+    clearBlocksContainerObstacles(app);
+    try {
+      var gc = app.root.script && app.root.script.gameConfig;
+      if (gc) {
+        if (state._savedTossDistance === undefined) {
+          state._savedTossDistance = gc.obstaclesTossMaxDistance;
+        }
+        gc.obstaclesTossMaxDistance = 500;
+      }
+    } catch (e) {}
+  }
+
+  function restoreObstacleSettings(app) {
+    try {
+      var gc = app.root && app.root.script && app.root.script.gameConfig;
+      if (gc && state._savedTossDistance !== undefined) {
+        gc.obstaclesTossMaxDistance = state._savedTossDistance;
+        state._savedTossDistance = undefined;
+      }
+    } catch (e) {}
+  }
+
   function enterFastLane(app) {
     if (state.fastLane) return;
     haltLetters();
@@ -141,6 +250,7 @@
           app.fire(EventTypes.POWERUP_DOUBLE_COIN);
           app.fire(EventTypes.POWERUP_MAGNET);
         }
+        clearFastLaneObstacles(app);
       } catch (e) {}
     }
 
@@ -153,6 +263,7 @@
       if (app) {
         try {
           app.timeScale = Math.min(1.25 + (FAST_LANE_SEC - remain) * 0.02, 1.85);
+          clearFastLaneObstacles(app);
         } catch (e) {}
       }
       pushHud();
@@ -224,6 +335,7 @@
   function endSession(reason, app) {
     haltLetters();
     clearEndTimers();
+    restoreObstacleSettings(app);
     if (gameOverSent) return;
     if (!state.active) return;
     gameOverSent = true;
