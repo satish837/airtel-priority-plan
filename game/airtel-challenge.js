@@ -136,6 +136,9 @@
   }
 
   function notifyRunEnded() {
+    state.fastLane = false;
+    state.fastLaneEnd = 0;
+    clearFastLaneInterval();
     stopPriorityCollection();
     post("airtel:hud", {
       collected: collectedSnapshot(),
@@ -144,6 +147,19 @@
       fastLaneRemain: 0
     });
     post("airtel:session-end", {});
+  }
+
+  /** Mission complete or death while nitro is active — stop countdown immediately. */
+  function checkRunEndDuringFastLane(app) {
+    if (!state.active || gameOverSent || !state.fastLane) return false;
+    if (typeof GameState === "undefined") return false;
+    var gs = readGameState(findGameStateController(app));
+    if (!gameplayWasRunning || !gs) return false;
+    if (gs === GameState.FINISHED || gs === GameState.DEAD) {
+      endSession(gs === GameState.DEAD ? "crash" : "complete", app);
+      return true;
+    }
+    return false;
   }
 
   function findTossObstacleEventNames() {
@@ -277,6 +293,13 @@
     clearFastLaneInterval();
     fastLaneInterval = setInterval(function () {
       if (!state.active || gameOverSent) {
+        clearFastLaneInterval();
+        return;
+      }
+      if (checkRunEndDuringFastLane(app)) {
+        return;
+      }
+      if (!state.fastLane) {
         clearFastLaneInterval();
         return;
       }
@@ -469,9 +492,12 @@
     }
 
     app.on("update", function () {
-      if (!state.active) return;
-      if (state.fastLane && Date.now() >= state.fastLaneEnd) {
-        endSession("complete", app);
+      if (!state.active || gameOverSent) return;
+      if (state.fastLane) {
+        if (checkRunEndDuringFastLane(app)) return;
+        if (Date.now() >= state.fastLaneEnd) {
+          endSession("complete", app);
+        }
       }
     });
   }
@@ -584,8 +610,12 @@
       stopPriorityCollection();
       return;
     }
+    if (state.fastLane) {
+      checkRunEndDuringFastLane(app);
+      return;
+    }
     syncLettersToGameplay(app);
-    if (!lettersEnabled || state.fastLane) {
+    if (!lettersEnabled) {
       clearWorldLetters();
       return;
     }
@@ -681,7 +711,15 @@
   }
 
   function syncLettersToGameplay(app) {
-    if (gameOverSent || !state.active || state.fastLane || allCollected()) {
+    if (gameOverSent || !state.active) {
+      if (lettersEnabled) stopPriorityCollection();
+      return;
+    }
+    if (state.fastLane) {
+      checkRunEndDuringFastLane(app);
+      return;
+    }
+    if (allCollected()) {
       if (lettersEnabled) stopPriorityCollection();
       return;
     }
@@ -724,7 +762,7 @@
     }
 
     if (gameplayWasRunning && gs === GameState.FINISHED && state.active) {
-      stopPriorityCollection();
+      endSession("complete", app);
     }
   }
 

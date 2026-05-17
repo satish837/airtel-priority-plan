@@ -232,7 +232,7 @@
       case "airtel:flash":
         $("hud-phase").textContent = e.data.message || "Fast Lane Unlocked!";
         setTimeout(function () {
-          if (sessionStarted) $("hud-phase").textContent = "FAST LANE";
+          if (sessionStarted && !runEnded) $("hud-phase").textContent = "FAST LANE";
         }, 2500);
         break;
       case "airtel:gameover":
