@@ -596,21 +596,12 @@
       return;
     }
     if (e.data.type !== "airtel:start-session") return;
-    if (!sessionStarted) {
-      sessionStarted = true;
-      gameplayWasRunning = false;
-      gameOverSent = false;
-      clearEndTimers();
-      resetProgress();
-      loadProgress();
-      state.active = true;
-      state.lastScore = 0;
-      hookAnalytics();
-    }
+    sessionStarted = true;
+    resetAirtelSession();
+    hookAnalytics();
     waitForGame(function (app) {
       hookApp(app);
-      pushHud();
-      startAirtelGameplayWithRetry();
+      restartAirtelGameplay(app);
     });
   });
 
@@ -631,14 +622,40 @@
   }
 
   /** Unpause and jump into a run (shell calls this after lead form). */
-  function startAirtelGameplay(app) {
+  function launchFreshMission(app) {
+    if (typeof MissionsManager === "undefined" || !MissionsManager.getInstance) {
+      return false;
+    }
+    try {
+      var endless =
+        typeof isEndlessMode === "function" ? isEndlessMode() : false;
+      MissionsManager.getInstance().launchSelectedMode(endless, true, 0);
+      gameplayPrimed = true;
+      return true;
+    } catch (e) {
+      console.warn("Airtel: launchSelectedMode failed", e);
+      return false;
+    }
+  }
+
+  function restartAirtelGameplay(app) {
     app = app || getApp();
     if (!app) return false;
+
+    runBegun = true;
+    gameOverSent = false;
+    gameplayPrimed = false;
+    gameplayWasRunning = false;
+
+    if (app._airtelLetterTick) {
+      app._airtelLetterTick = false;
+    }
 
     try {
       app.timeScale = 1;
     } catch (e) {}
 
+    launchFreshMission(app);
     beginRunUnstick(app);
 
     try {
@@ -648,36 +665,29 @@
       }
     } catch (e) {}
 
-    try {
-      if (typeof MissionsManager !== "undefined" && MissionsManager.getInstance) {
-        if (!gameplayPrimed) {
-          var endless =
-            typeof isEndlessMode === "function" ? isEndlessMode() : false;
-          MissionsManager.getInstance().launchSelectedMode(endless, true, 0);
-          gameplayPrimed = true;
-        }
-        kickStartGame();
-        startLetterSpawner(app);
-        return true;
-      }
-    } catch (e) {
-      console.warn("Airtel: launchSelectedMode failed", e);
-    }
-
     kickStartGame();
     startLetterSpawner(app);
-    return false;
+    pushHud();
+    return true;
+  }
+
+  function startAirtelGameplay(app) {
+    app = app || getApp();
+    if (!app) return false;
+    if (!gameplayPrimed) {
+      launchFreshMission(app);
+    }
+    return restartAirtelGameplay(app);
   }
 
   function startAirtelGameplayWithRetry() {
-    if (runBegun) return;
+    if (runBegun && state.active) return;
     var attempts = 0;
     var tryStart = function () {
       attempts++;
       var app = getApp();
       if (app && typeof EventTypes !== "undefined") {
-        runBegun = true;
-        startAirtelGameplay(app);
+        restartAirtelGameplay(app);
         return;
       }
       if (attempts < 40) {
@@ -685,6 +695,21 @@
       }
     };
     tryStart();
+  }
+
+  function resetAirtelSession() {
+    clearEndTimers();
+    gameOverSent = false;
+    runBegun = false;
+    gameplayPrimed = false;
+    gameplayWasRunning = false;
+    lettersEnabled = false;
+    resetProgress();
+    state.active = true;
+    state.lastScore = 0;
+    state.fastLane = false;
+    state.fastLaneEnd = 0;
+    haltLetters();
   }
 
   function signalLoaded() {

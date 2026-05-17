@@ -15,6 +15,10 @@
   var gameLoaded = false;
   var sessionStarted = false;
   var pendingSession = false;
+  var gameFrameBase = frame
+    ? frame.getAttribute("src").split("#")[0].split("?")[0] +
+      "?origin=https%3A%2F%2Fgamesnacks.com&gameCenterId=gamesnacks"
+    : "game/index.html?origin=https%3A%2F%2Fgamesnacks.com&gameCenterId=gamesnacks";
 
   function $(id) {
     return document.getElementById(id);
@@ -202,11 +206,26 @@
     startSession();
   });
 
+  function reloadGameFrame(done) {
+    if (!frame) {
+      if (done) done();
+      return;
+    }
+    gameLoaded = false;
+    gameReady = false;
+    function onLoad() {
+      frame.removeEventListener("load", onLoad);
+      if (done) done();
+    }
+    frame.addEventListener("load", onLoad);
+    frame.src = gameFrameBase + "&_=" + Date.now();
+  }
+
   $("btn-play-again").addEventListener("click", function () {
     updateReplays();
-    gameLoaded = false;
-    frame.src = frame.src.split("#")[0];
-    startSession();
+    reloadGameFrame(function () {
+      beginPlayUi();
+    });
   });
 
   $("btn-show-leaderboard").addEventListener("click", function () {
