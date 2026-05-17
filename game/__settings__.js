@@ -3,20 +3,21 @@
     "https://omnomrun.h5games.usercontent.goog/v/09a49b6f-99b7-4a51-ad16-69cf656925ff/";
   var host = typeof location !== "undefined" ? location.hostname : "";
   var localDev = /^(localhost|127\.0\.0\.1)$/.test(host);
-  /* Prefer downloaded assets (game-data/) when manifest exists */
-  var useLocal =
-    localDev &&
-    (function () {
-      try {
-        var xhr = new XMLHttpRequest();
-        xhr.open("HEAD", "/game-data/manifest.json", false);
-        xhr.send();
-        return xhr.status === 200;
-      } catch (e) {
-        return false;
-      }
-    })();
-  var prefix = useLocal ? "/game-data/" : localDev ? "/cdn/" : CDN;
+  var vercelHost = /\.vercel\.app$/i.test(host);
+  /* Prefer bundled game-data/ when manifest exists (localhost + Vercel deploys) */
+  var useLocal = (function () {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open("HEAD", "/game-data/manifest.json", false);
+      xhr.send();
+      return xhr.status === 200;
+    } catch (e) {
+      return false;
+    }
+  })();
+  /* Same-origin CDN proxy: local serve.py, or Vercel rewrite in vercel.json */
+  var useCdnProxy = localDev || vercelHost;
+  var prefix = useLocal ? "/game-data/" : useCdnProxy ? "/cdn/" : CDN;
 
   window.ASSET_PREFIX = prefix;
   window.SCRIPT_PREFIX = prefix;
