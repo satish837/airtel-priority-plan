@@ -37,6 +37,7 @@
     runEnded = true;
     if (!runHud) return;
     resetRunHud();
+    renderLetters([]);
     runHud.classList.add("hidden");
     runHud.setAttribute("aria-hidden", "true");
   }

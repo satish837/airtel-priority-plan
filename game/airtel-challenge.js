@@ -136,6 +136,7 @@
   }
 
   function notifyRunEnded() {
+    stopPriorityCollection();
     post("airtel:hud", {
       collected: collectedSnapshot(),
       coins: state.coins + state.fastLaneCoins,
@@ -255,7 +256,7 @@
 
   function enterFastLane(app) {
     if (state.fastLane) return;
-    haltLetters();
+    stopPriorityCollection();
     state.fastLane = true;
     state.fastLaneEnd = Date.now() + FAST_LANE_SEC * 1000;
     saveProgress();
@@ -295,7 +296,7 @@
   }
 
   function onLetterCollected(letterChar) {
-    if (!state.active || state.fastLane) return;
+    if (!state.active || state.fastLane || gameOverSent) return;
     var ch = (letterChar || "").toString().toUpperCase().charAt(0);
     if (!ch) return;
 
@@ -321,7 +322,13 @@
 
   function haltLetters() {
     lettersEnabled = false;
+    letterSpawnCd = 0;
     stopLetterSpawner();
+  }
+
+  function stopPriorityCollection() {
+    haltLetters();
+    clearWorldLetters();
   }
 
   function pauseGame(app) {
@@ -362,7 +369,7 @@
   }
 
   function endSession(reason, app) {
-    haltLetters();
+    stopPriorityCollection();
     clearEndTimers();
     restoreObstacleSettings(app);
     state.fastLane = false;
@@ -390,6 +397,7 @@
   function onRunCompleted(app) {
     app = app || getApp();
     if (!state.active || gameOverSent) return;
+    stopPriorityCollection();
 
     if (state.fastLane) {
       endSession("complete", app);
@@ -555,6 +563,7 @@
   }
 
   function tryPickupLetter(entry) {
+    if (!state.active || gameOverSent || !lettersEnabled) return;
     var need = nextNeeded();
     if (!need && state.missed.length) need = state.missed[0];
     if (!need) return;
@@ -571,8 +580,12 @@
   }
 
   function updateWorldLetters(dt, app) {
+    if (gameOverSent || !state.active) {
+      stopPriorityCollection();
+      return;
+    }
     syncLettersToGameplay(app);
-    if (!lettersEnabled || !state.active || state.fastLane) {
+    if (!lettersEnabled || state.fastLane) {
       clearWorldLetters();
       return;
     }
@@ -668,8 +681,8 @@
   }
 
   function syncLettersToGameplay(app) {
-    if (!state.active || state.fastLane || allCollected()) {
-      if (lettersEnabled) haltLetters();
+    if (gameOverSent || !state.active || state.fastLane || allCollected()) {
+      if (lettersEnabled) stopPriorityCollection();
       return;
     }
     if (typeof GameState === "undefined") return;
@@ -691,19 +704,27 @@
       deathEndTimer = null;
     }
 
-    if (gameplayWasRunning && gs === GameState.DEAD && state.active && !deathEndTimer) {
+    if (gameplayWasRunning && gs === GameState.DEAD && state.active) {
+      stopPriorityCollection();
       if (state.fastLane) {
         endSession("crash", app);
         return;
       }
-      deathEndTimer = setTimeout(function () {
-        deathEndTimer = null;
-        if (!state.active || gameOverSent) return;
-        var now = readGameState(findGameStateController(app));
-        if (now === GameState.DEAD) {
-          endSession("crash", app);
-        }
-      }, 2200);
+      if (!deathEndTimer) {
+        deathEndTimer = setTimeout(function () {
+          deathEndTimer = null;
+          if (!state.active || gameOverSent) return;
+          var now = readGameState(findGameStateController(app));
+          if (now === GameState.DEAD) {
+            endSession("crash", app);
+          }
+        }, 2200);
+      }
+      return;
+    }
+
+    if (gameplayWasRunning && gs === GameState.FINISHED && state.active) {
+      stopPriorityCollection();
     }
   }
 
@@ -751,7 +772,7 @@
   window.addEventListener("message", function (e) {
     if (!e.data || !e.data.type) return;
     if (e.data.type === "airtel:stop-letters") {
-      haltLetters();
+      stopPriorityCollection();
       return;
     }
     if (e.data.type !== "airtel:start-session") return;
