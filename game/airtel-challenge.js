@@ -254,9 +254,10 @@
       } catch (e) {}
     }
 
-    var tick = setInterval(function () {
-      if (!state.active) {
-        clearInterval(tick);
+    clearFastLaneInterval();
+    fastLaneInterval = setInterval(function () {
+      if (!state.active || gameOverSent) {
+        clearFastLaneInterval();
         return;
       }
       var remain = (state.fastLaneEnd - Date.now()) / 1000;
@@ -268,7 +269,7 @@
       }
       pushHud();
       if (remain <= 0) {
-        clearInterval(tick);
+        clearFastLaneInterval();
         endSession("complete", app);
       }
     }, 500);
@@ -313,8 +314,17 @@
   }
 
   var deathEndTimer = null;
+  var fastLaneInterval = null;
+
+  function clearFastLaneInterval() {
+    if (fastLaneInterval) {
+      clearInterval(fastLaneInterval);
+      fastLaneInterval = null;
+    }
+  }
 
   function clearEndTimers() {
+    clearFastLaneInterval();
     if (deathEndTimer) {
       clearTimeout(deathEndTimer);
       deathEndTimer = null;
@@ -336,22 +346,34 @@
     haltLetters();
     clearEndTimers();
     restoreObstacleSettings(app);
-    if (gameOverSent) return;
-    if (!state.active) return;
-    gameOverSent = true;
-    state.active = false;
-    pauseGame(app);
-    postGameOver(buildGameOverPayload(reason));
-    try {
-      localStorage.removeItem(PRIORITY_KEY);
-    } catch (e) {}
+    var payload = buildGameOverPayload(reason);
+
+    if (!gameOverSent) {
+      if (!state.active) {
+        postGameOver(payload);
+        return;
+      }
+      gameOverSent = true;
+      state.active = false;
+      state.fastLane = false;
+      pauseGame(app);
+      try {
+        localStorage.removeItem(PRIORITY_KEY);
+      } catch (e) {}
+    }
+
+    postGameOver(payload);
   }
 
   /** Mission distance reached or level success — show Airtel summary (not native mission UI). */
   function onRunCompleted(app) {
     app = app || getApp();
     if (!state.active || gameOverSent) return;
-    if (state.fastLane) return;
+
+    if (state.fastLane) {
+      endSession("complete", app);
+      return;
+    }
 
     if (allCollected()) {
       enterFastLane(app);
@@ -649,6 +671,10 @@
     }
 
     if (gameplayWasRunning && gs === GameState.DEAD && state.active && !deathEndTimer) {
+      if (state.fastLane) {
+        endSession("crash", app);
+        return;
+      }
       deathEndTimer = setTimeout(function () {
         deathEndTimer = null;
         if (!state.active || gameOverSent) return;
@@ -821,6 +847,7 @@
     state.lastScore = 0;
     state.fastLane = false;
     state.fastLaneEnd = 0;
+    state._savedTossDistance = undefined;
     haltLetters();
   }
 

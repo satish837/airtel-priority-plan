@@ -165,6 +165,9 @@
   window.addEventListener("message", function (e) {
     if (!e.data || typeof e.data.type !== "string") return;
     if (e.data.type.indexOf("airtel:") !== 0) return;
+    if (frame && frame.contentWindow && e.source && e.source !== frame.contentWindow) {
+      return;
+    }
 
     switch (e.data.type) {
       case "airtel:ready":
@@ -236,7 +239,10 @@
       if (done) done();
     }
     frame.addEventListener("load", onLoad);
-    frame.src = gameFrameBase + "&_=" + Date.now();
+    frame.src = "about:blank";
+    setTimeout(function () {
+      frame.src = gameFrameBase + "&_=" + Date.now();
+    }, 60);
   }
 
   $("btn-play-again").addEventListener("click", function () {
@@ -250,6 +256,9 @@
       setTimeout(function () {
         postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
       }, 2800);
+      setTimeout(function () {
+        postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+      }, 5000);
     });
   });
 
