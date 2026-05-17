@@ -33,6 +33,11 @@ body {
   z-index: 1;
 }
 
+#game-frame.game-over-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .airtel-splash {
   position: fixed;
   inset: 0;
@@ -57,7 +62,7 @@ body {
 .panel {
   position: absolute;
   inset: 0;
-  z-index: 10;
+  z-index: 20;
   display: none;
   overflow: auto;
   background: linear-gradient(165deg, #ff6b00 0%, #e60000 50%, #b71c1c 100%);

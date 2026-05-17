@@ -183,15 +183,21 @@
     stopLetterSpawner();
   }
 
+  function pauseGame(app) {
+    app = app || getApp();
+    if (!app) return;
+    try {
+      app.timeScale = 0;
+    } catch (e) {}
+  }
+
   function endSession(reason, app) {
     haltLetters();
+    if (gameOverSent) return;
     if (!state.active) return;
+    gameOverSent = true;
     state.active = false;
-    if (app) {
-      try {
-        app.timeScale = 1;
-      } catch (e) {}
-    }
+    pauseGame(app);
     post("airtel:gameover", {
       reason: reason,
       coins: state.coins,
@@ -256,6 +262,8 @@
         if (event === "EVENT_LEVELSUCCESS") {
           if (!state.fastLane && allCollected()) {
             enterFastLane(getApp());
+          } else if (!state.fastLane) {
+            endSession("complete", getApp());
           }
         }
       }
@@ -280,6 +288,7 @@
   var sessionStarted = false;
   var gameplayPrimed = false;
   var runBegun = false;
+  var gameOverSent = false;
 
   /* In-world PRIORITY letters (mission 1 is Reach Distance — game never spawns them) */
   var letterLayer = null;
@@ -476,12 +485,18 @@
       return;
     }
 
+    if (gameplayWasRunning && gs === GameState.DEAD && state.active) {
+      endSession("crash", app);
+      return;
+    }
+
     if (
       gameplayWasRunning &&
-      gs &&
-      (gs === GameState.DEAD || gs === GameState.FINISHED)
+      gs === GameState.FINISHED &&
+      state.active &&
+      !state.fastLane
     ) {
-      haltLetters();
+      endSession("complete", app);
     }
   }
 
@@ -532,6 +547,7 @@
     if (!sessionStarted) {
       sessionStarted = true;
       gameplayWasRunning = false;
+      gameOverSent = false;
       resetProgress();
       loadProgress();
       state.active = true;

@@ -84,9 +84,15 @@
     if (el) el.style.display = "none";
   }
 
+  function setGameFrameVisible(visible) {
+    if (!frame) return;
+    frame.classList.toggle("game-over-hidden", !visible);
+  }
+
   function beginPlayUi() {
     sessionStarted = true;
     pendingSession = false;
+    setGameFrameVisible(true);
     showPanel(null);
     renderLetters([]);
     $("hud-coins").textContent = "0";
@@ -117,6 +123,7 @@
   function showGameOver(data) {
     postToGame({ type: "airtel:stop-letters" });
     sessionStarted = false;
+    setGameFrameVisible(false);
     var user = AirtelStorage.getUser();
     if (user) {
       AirtelStorage.submitScore(
