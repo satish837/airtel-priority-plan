@@ -114,6 +114,15 @@
   }
 
   function pushHud() {
+    if (gameOverSent || !state.active) {
+      post("airtel:hud", {
+        collected: collectedSnapshot(),
+        coins: state.coins + state.fastLaneCoins,
+        phase: "ended",
+        fastLaneRemain: 0
+      });
+      return;
+    }
     var remain = 0;
     if (state.fastLane) {
       remain = Math.max(0, (state.fastLaneEnd - Date.now()) / 1000);
@@ -124,6 +133,16 @@
       phase: state.fastLane ? "fastlane" : "collect",
       fastLaneRemain: remain
     });
+  }
+
+  function notifyRunEnded() {
+    post("airtel:hud", {
+      collected: collectedSnapshot(),
+      coins: state.coins + state.fastLaneCoins,
+      phase: "ended",
+      fastLaneRemain: 0
+    });
+    post("airtel:session-end", {});
   }
 
   function findTossObstacleEventNames() {
@@ -346,6 +365,9 @@
     haltLetters();
     clearEndTimers();
     restoreObstacleSettings(app);
+    state.fastLane = false;
+    state.fastLaneEnd = 0;
+    notifyRunEnded();
     var payload = buildGameOverPayload(reason);
 
     if (!gameOverSent) {
@@ -355,7 +377,6 @@
       }
       gameOverSent = true;
       state.active = false;
-      state.fastLane = false;
       pauseGame(app);
       try {
         localStorage.removeItem(PRIORITY_KEY);

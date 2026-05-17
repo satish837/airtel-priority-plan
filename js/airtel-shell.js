@@ -15,6 +15,7 @@
   var gameLoaded = false;
   var sessionStarted = false;
   var pendingSession = false;
+  var runEnded = false;
   var gameFrameBase = frame
     ? frame.getAttribute("src").split("#")[0].split("?")[0] +
       "?origin=https%3A%2F%2Fgamesnacks.com&gameCenterId=gamesnacks"
@@ -24,8 +25,29 @@
     return document.getElementById(id);
   }
 
+  function resetRunHud() {
+    if (!$("hud-phase") || !$("hud-timer") || !$("hud-coins")) return;
+    $("hud-phase").textContent = "Collect PRIORITY";
+    $("hud-timer").textContent = "";
+    $("hud-timer").classList.add("hidden");
+    $("hud-coins").textContent = "0";
+  }
+
+  function hideRunHud() {
+    runEnded = true;
+    if (!runHud) return;
+    resetRunHud();
+    runHud.classList.add("hidden");
+    runHud.setAttribute("aria-hidden", "true");
+  }
+
   function refreshRunHud() {
     if (!runHud) return;
+    if (runEnded) {
+      runHud.classList.add("hidden");
+      runHud.setAttribute("aria-hidden", "true");
+      return;
+    }
     var panelActive = document.querySelector(".panel.panel-active");
     var onOverlay =
       panelActive &&
@@ -104,14 +126,13 @@
   }
 
   function beginPlayUi() {
+    runEnded = false;
     sessionStarted = true;
     pendingSession = false;
     setGameFrameVisible(true);
     showPanel(null);
     renderLetters([]);
-    $("hud-coins").textContent = "0";
-    $("hud-phase").textContent = "Collect PRIORITY";
-    $("hud-timer").classList.add("hidden");
+    resetRunHud();
     postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
     /* One retry if the iframe was not ready on first post */
     setTimeout(function () {
@@ -136,6 +157,7 @@
 
   function showGameOver(data) {
     if (!data) return;
+    hideRunHud();
     postToGame({ type: "airtel:stop-letters" });
     sessionStarted = false;
     setGameFrameVisible(false);
@@ -186,7 +208,14 @@
           renderLetters(e.data.collected || []);
         }
         break;
+      case "airtel:session-end":
+        hideRunHud();
+        break;
       case "airtel:hud":
+        if (runEnded || e.data.phase === "ended") {
+          hideRunHud();
+          break;
+        }
         refreshRunHud();
         renderLetters(e.data.collected);
         $("hud-coins").textContent = String(e.data.coins || 0);
