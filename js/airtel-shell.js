@@ -11,6 +11,7 @@
   var LETTERS = AirtelStorage.LETTERS;
   var frame = document.getElementById("game-frame");
   var runHud = document.getElementById("run-hud");
+  var fastlaneGlow = document.getElementById("fastlane-glow");
   var gameReady = false;
   var gameLoaded = false;
   var sessionStarted = false;
@@ -25,6 +26,19 @@
     return document.getElementById(id);
   }
 
+  function defaultCharacterKey() {
+    return window.AIRTEL_CHARACTER || "SuperNom";
+  }
+
+  function sessionPayload() {
+    var user = AirtelStorage.getUser() || {};
+    return {
+      type: "airtel:start-session",
+      user: user,
+      character: defaultCharacterKey()
+    };
+  }
+
   function resetRunHud() {
     if (!$("hud-phase") || !$("hud-timer") || !$("hud-coins")) return;
     $("hud-phase").textContent = "Collect PRIORITY";
@@ -33,8 +47,22 @@
     $("hud-coins").textContent = "0";
   }
 
+  function setFastLaneGlow(active) {
+    if (!fastlaneGlow) return;
+    if (active) {
+      fastlaneGlow.classList.add("active");
+      fastlaneGlow.classList.remove("hidden");
+      fastlaneGlow.setAttribute("aria-hidden", "false");
+    } else {
+      fastlaneGlow.classList.remove("active");
+      fastlaneGlow.classList.add("hidden");
+      fastlaneGlow.setAttribute("aria-hidden", "true");
+    }
+  }
+
   function hideRunHud() {
     runEnded = true;
+    setFastLaneGlow(false);
     if (!runHud) return;
     resetRunHud();
     renderLetters([]);
@@ -106,8 +134,8 @@
     });
     var w = AirtelStorage.getDailyWinner();
     $("daily-winner").textContent = w
-      ? "Today's leader: " + w.name + " (" + w.total + " coins)"
-      : "";
+      ? "Today's winner: " + w.name
+      : "Today's winner: xx";
   }
 
   function escapeHtml(s) {
@@ -130,14 +158,15 @@
     runEnded = false;
     sessionStarted = true;
     pendingSession = false;
+    setFastLaneGlow(false);
     setGameFrameVisible(true);
     showPanel(null);
     renderLetters([]);
     resetRunHud();
-    postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+    postToGame(sessionPayload());
     /* One retry if the iframe was not ready on first post */
     setTimeout(function () {
-      postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+      postToGame(sessionPayload());
     }, 600);
   }
 
@@ -148,7 +177,8 @@
     AirtelStorage.saveUser({
       name: $("reg-name").value.trim(),
       phone: $("reg-phone").value.trim(),
-      storeId: $("reg-store").value.trim()
+      storeId: $("reg-store").value.trim(),
+      character: defaultCharacterKey()
     });
     beginPlayUi();
     if (!gameLoaded) {
@@ -221,15 +251,20 @@
         renderLetters(e.data.collected);
         $("hud-coins").textContent = String(e.data.coins || 0);
         if (e.data.phase === "fastlane") {
+          setFastLaneGlow(true);
           $("hud-phase").textContent = "FAST LANE";
           $("hud-timer").classList.remove("hidden");
           $("hud-timer").textContent = Math.ceil(e.data.fastLaneRemain || 0) + "s";
         } else {
+          setFastLaneGlow(false);
           $("hud-phase").textContent = "Collect PRIORITY";
           $("hud-timer").classList.add("hidden");
         }
         break;
       case "airtel:flash":
+        if ((e.data.message || "").indexOf("Fast Lane") >= 0) {
+          setFastLaneGlow(true);
+        }
         $("hud-phase").textContent = e.data.message || "Fast Lane Unlocked!";
         setTimeout(function () {
           if (sessionStarted && !runEnded) $("hud-phase").textContent = "FAST LANE";
@@ -281,13 +316,13 @@
       beginPlayUi();
       /* Extra start-session posts after iframe boot (Play Again) */
       setTimeout(function () {
-        postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+        postToGame(sessionPayload());
       }, 1200);
       setTimeout(function () {
-        postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+        postToGame(sessionPayload());
       }, 2800);
       setTimeout(function () {
-        postToGame({ type: "airtel:start-session", user: AirtelStorage.getUser() });
+        postToGame(sessionPayload());
       }, 5000);
     });
   });

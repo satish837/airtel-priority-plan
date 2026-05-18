@@ -26,18 +26,17 @@
     <section id="panel-register" class="panel panel-active" aria-label="Registration">
       <div class="panel-inner">
         <header class="brand-header">
-          <img src="images/logo-white.png" alt="Airtel">
+          <img src="images/logo-white.png" alt="Logo">
           <h1>Fast Lane Challenge</h1>
-          <p>Collect PRIORITY Points · Unlock the Fast Lane</p>
+          <p>Collect letters of the word PRIORITY &amp; unlock the Fast Lane</p>
         </header>
         <div class="card">
-          <h2>Enter your details</h2>
           <div class="field">
             <label for="reg-name">Name</label>
             <input id="reg-name" type="text" autocomplete="name" placeholder="Your name">
           </div>
           <div class="field">
-            <label for="reg-phone">Phone number</label>
+            <label for="reg-phone">Phone</label>
             <input id="reg-phone" type="tel" inputmode="numeric" placeholder="10-digit mobile">
           </div>
           <div class="field">
@@ -47,15 +46,21 @@
           <p id="register-error" class="error"></p>
           <button type="button" class="btn btn-primary" id="btn-start-register">Start Challenge</button>
         </div>
-        <ul class="instructions">
-          <li>Game Name— swipe to dodge obstacles &amp; collect letters</li>
-          <li>Spell <strong>PRIORITY</strong> — missed letters respawn in the run</li>
-          <li>Unlock 60s Fast Lane nitro coin rush when complete</li>
-        </ul>
+        <div class="instructions-block">
+          <p class="instructions-lead">Play and win the game in 3 easy steps:</p>
+          <ol class="instructions">
+            <li>Collect all letters of the word PRIORITY</li>
+            <li>Once the letters are corrected, Fast Lane will be unlocked</li>
+            <li>Collect coins on Fast Lane and user with maximum coins wins</li>
+          </ol>
+          <p class="instructions-note">Note: The game is 3 minutes long and you have 3 attempts for 1 day</p>
+        </div>
         <p class="meta" id="replays-left" hidden></p>
         <button type="button" class="btn btn-ghost" id="btn-show-leaderboard">View Leaderboard</button>
       </div>
     </section>
+
+    <div id="fastlane-glow" class="fastlane-glow hidden" aria-hidden="true"></div>
 
     <!-- In-run HUD (over iframe) -->
     <div id="run-hud" class="run-hud hidden" aria-hidden="true">
@@ -96,17 +101,18 @@
     <section id="panel-leaderboard" class="panel" aria-label="Leaderboard">
       <div class="panel-inner">
         <header class="brand-header">
-          <img src="images/logo-white.png" alt="Airtel">
-          <h1>Daily Leaderboard</h1>
-          <p>Ranked by max coins collected today</p>
+          <img src="images/logo-white.png" alt="Logo">
+          <p class="brand-tagline">Play &amp; win every day</p>
+          <h1>Today&rsquo;s Leaderboard</h1>
         </header>
-        <p id="daily-winner" class="daily-winner"></p>
+        <p id="daily-winner" class="daily-winner">Today&rsquo;s winner: xx</p>
         <ul id="leaderboard-list" class="card leaderboard-list"></ul>
         <button type="button" class="btn btn-primary" id="btn-back-home">Back to Home</button>
       </div>
     </section>
   </div>
 
+  <script src="game/airtel-config.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/airtel-shell.js"></script>
 </body>

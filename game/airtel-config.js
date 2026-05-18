@@ -1,0 +1,25 @@
+/**
+ * Airtel challenge — default runner character (Om Nom Run character key).
+ * Keys must match game-data/.../CharactersConfig.json
+ */
+(function () {
+  "use strict";
+
+  window.AIRTEL_CHARACTERS = [
+    { key: "SuperNom", name: "Super Nom" },
+    { key: "OmNelle", name: "Om Nelle" },
+    { key: "SwordKid", name: "Sword Kid" },
+    { key: "RoboKid", name: "Robo Kid" },
+    { key: "TechKid", name: "Tech Kid" },
+    { key: "SpaceCowgirl", name: "Space Cowgirl" },
+    { key: "FireNom", name: "Fire Nom" },
+    { key: "IceNom", name: "Ice Nom" },
+    { key: "EarthNom", name: "Earth Nom" },
+    { key: "WindNom", name: "Wind Nom" },
+    { key: "NomOfSteel", name: "Nom of Steel" },
+    { key: "OmNom", name: "Om Nom Classic" },
+    { key: "OmNomX", name: "Om Nom X" }
+  ];
+
+  window.AIRTEL_CHARACTER = "OmNelle";
+})();

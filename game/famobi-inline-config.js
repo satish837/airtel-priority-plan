@@ -63,7 +63,7 @@ window.FAMOBI_INLINE_CONFIG = {
   gameParams: { ad_type: "off" },
   menuless: true,
   disable_console: false,
-  includeJS: ["airtel-challenge.js"],
+  includeJS: ["airtel-config.js", "airtel-challenge.js"],
   version: "4d3d09c6",
   supportedLanguages: [],
   ads: { off: true, show_initial: false }

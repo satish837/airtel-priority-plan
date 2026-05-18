@@ -53,8 +53,7 @@
     });
     var winner = AirtelStorage.getDailyWinner();
     if (winner) {
-      $("daily-winner").textContent =
-        "Today's leader: " + winner.name + " (" + winner.total + " coins)";
+      $("daily-winner").textContent = "Today's winner: " + winner.name;
     }
   }
 

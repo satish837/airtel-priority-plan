@@ -1,0 +1,16 @@
+/* Full-screen orange wash over native mission-fail UI (WebGL canvas).
+   Overlay is a real #airtel-mission-tint-overlay node (last in body) — more reliable than ::after.
+   #airtel-letter-layer uses z-index 50 so it stays above this overlay (z-index 45). */
+/* Fallback wash if canvas assets are still cached blue */
+#airtel-mission-tint-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  pointer-events: none;
+  background: linear-gradient(
+    165deg,
+    rgba(255, 140, 50, 0.35) 0%,
+    rgba(230, 50, 0, 0.3) 50%,
+    rgba(160, 20, 10, 0.35) 100%
+  );
+}

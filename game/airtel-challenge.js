@@ -8,6 +8,9 @@
   var LETTERS = ["P", "R", "I", "O", "R", "I", "T", "Y"];
   var FAST_LANE_SEC = 60;
   var PRIORITY_KEY = "airtel_priority_v1";
+  var sessionCharacterKey =
+    (typeof window !== "undefined" && window.AIRTEL_CHARACTER) || "SuperNom";
+
   var state = {
     active: false,
     collected: {},
@@ -61,6 +64,116 @@
       state.collected[LETTERS[i] + i] = false;
     }
     saveProgress();
+  }
+
+  function getCharactersManager() {
+    try {
+      if (typeof CharactersManager !== "undefined" && CharactersManager.getInstance) {
+        return CharactersManager.getInstance();
+      }
+      var app = getApp();
+      if (app && app.root && app.root.script && app.root.script.charactersManager) {
+        return app.root.script.charactersManager;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function persistCharacterKey(key) {
+    try {
+      if (typeof Constants !== "undefined" && Constants.ACTIVE_CHARACTER) {
+        if (typeof LocalStorageController !== "undefined" && LocalStorageController.setItem) {
+          LocalStorageController.setItem(Constants.ACTIVE_CHARACTER, key);
+        }
+        if (window.famobi && window.famobi.localStorage) {
+          window.famobi.localStorage.setItem(Constants.ACTIVE_CHARACTER, key);
+        }
+      }
+      window.AIRTEL_CHARACTER = key;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function unlockCharacter(cm, key) {
+    try {
+      if (typeof cm.initCharactersData === "function") {
+        cm.initCharactersData();
+      }
+      var data = typeof cm.getCharactersData === "function" ? cm.getCharactersData() : null;
+      if (data) {
+        if (!data[key]) {
+          data[key] = { levels: [0, 0, 0], purchased: true };
+        } else {
+          data[key].purchased = true;
+        }
+        if (typeof Constants !== "undefined" && Constants.CHARACTERS_DATA && LocalStorageController) {
+          LocalStorageController.setItem(Constants.CHARACTERS_DATA, JSON.stringify(data));
+        }
+      }
+      var name;
+      for (name in cm) {
+        if (typeof cm[name] !== "function" || cm[name].length !== 1) continue;
+        var src = Function.prototype.toString.call(cm[name]);
+        if (src.indexOf("purchased") !== -1 && src.indexOf("Apicontroller") !== -1) {
+          try {
+            cm[name](key);
+          } catch (e1) {}
+          break;
+        }
+      }
+    } catch (e) {}
+  }
+
+  function invokeCharacterSelect(cm, key) {
+    var name;
+    var proto = cm;
+    var depth = 0;
+    while (proto && depth < 3) {
+      for (name in proto) {
+        if (!Object.prototype.hasOwnProperty.call(proto, name)) continue;
+        if (typeof proto[name] !== "function" || proto[name].length !== 1) continue;
+        if (/^(on|update|initialize|postInitialize|swap|get|set)/i.test(name)) continue;
+        var src = Function.prototype.toString.call(proto[name]);
+        if (src.indexOf("CharactersManager") === -1) continue;
+        try {
+          proto[name].call(cm, key);
+          return true;
+        } catch (e1) {}
+      }
+      proto = Object.getPrototypeOf(proto);
+      depth++;
+    }
+    return false;
+  }
+
+  function applyAirtelCharacter(characterKey) {
+    characterKey = characterKey || sessionCharacterKey || window.AIRTEL_CHARACTER || "SuperNom";
+    sessionCharacterKey = characterKey;
+    persistCharacterKey(characterKey);
+
+    var cm = getCharactersManager();
+    if (!cm) return false;
+
+    unlockCharacter(cm, characterKey);
+    if (invokeCharacterSelect(cm, characterKey)) {
+      return true;
+    }
+    return persistCharacterKey(characterKey);
+  }
+
+  function waitForCharactersManager(cb, attempts) {
+    attempts = attempts || 0;
+    var cm = getCharactersManager();
+    if (cm && typeof Constants !== "undefined") {
+      cb(cm);
+      return;
+    }
+    if (attempts > 80) return;
+    setTimeout(function () {
+      waitForCharactersManager(cb, attempts + 1);
+    }, 200);
   }
 
   function post(type, data) {
@@ -372,6 +485,24 @@
   var deathEndTimer = null;
   var fastLaneInterval = null;
 
+  function setMissionResultTint(on) {
+    try {
+      if (document.documentElement) {
+        document.documentElement.classList.toggle("airtel-mission-result-tint", !!on);
+      }
+    } catch (e) {}
+    var el = document.getElementById("airtel-mission-tint-overlay");
+    if (!on) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+      return;
+    }
+    if (el) return;
+    el = document.createElement("div");
+    el.id = "airtel-mission-tint-overlay";
+    el.setAttribute("aria-hidden", "true");
+    document.body.appendChild(el);
+  }
+
   function clearFastLaneInterval() {
     if (fastLaneInterval) {
       clearInterval(fastLaneInterval);
@@ -418,6 +549,12 @@
       try {
         localStorage.removeItem(PRIORITY_KEY);
       } catch (e) {}
+    }
+
+    if (reason === "crash") {
+      setMissionResultTint(true);
+    } else {
+      setMissionResultTint(false);
     }
 
     postGameOver(payload);
@@ -498,6 +635,16 @@
     }
 
     app.on("update", function () {
+      try {
+        if (document.documentElement.classList.contains("airtel-mission-result-tint")) {
+          if (typeof GameState !== "undefined") {
+            var gsTint = readGameState(findGameStateController(app));
+            if (gsTint === GameState.RUNNING && (app.timeScale || 0) > 0.01) {
+              setMissionResultTint(false);
+            }
+          }
+        }
+      } catch (eTint) {}
       if (!state.active || gameOverSent) return;
       if (state.fastLane) {
         if (checkRunEndDuringFastLane(app)) return;
@@ -749,6 +896,7 @@
     }
 
     if (gameplayWasRunning && gs === GameState.DEAD && state.active) {
+      setMissionResultTint(true);
       stopPriorityCollection();
       if (state.fastLane) {
         endSession("crash", app);
@@ -821,11 +969,19 @@
     }
     if (e.data.type !== "airtel:start-session") return;
     sessionStarted = true;
+    if (e.data.character) {
+      sessionCharacterKey = e.data.character;
+    } else if (e.data.user && e.data.user.character) {
+      sessionCharacterKey = e.data.user.character;
+    }
     resetAirtelSession();
     hookAnalytics();
     waitForGame(function (app) {
       hookApp(app);
-      restartAirtelGameplay(app);
+      waitForCharactersManager(function () {
+        applyAirtelCharacter(sessionCharacterKey);
+        restartAirtelGameplay(app);
+      });
     });
   });
 
@@ -866,6 +1022,7 @@
     app = app || getApp();
     if (!app) return false;
 
+    setMissionResultTint(false);
     runBegun = true;
     gameOverSent = false;
     gameplayPrimed = false;
@@ -879,6 +1036,7 @@
       app.timeScale = 1;
     } catch (e) {}
 
+    applyAirtelCharacter(sessionCharacterKey);
     launchFreshMission(app);
     beginRunUnstick(app);
 
@@ -922,6 +1080,7 @@
   }
 
   function resetAirtelSession() {
+    setMissionResultTint(false);
     clearEndTimers();
     gameOverSent = false;
     runBegun = false;
