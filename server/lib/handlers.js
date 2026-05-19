@@ -23,6 +23,27 @@ function sortBoard(board) {
   });
 }
 
+/** One row per phone — best run of the day (for public leaderboard). */
+function bestBoardPerPlayer(rows) {
+  var byPhone = {};
+  rows.forEach(function (row) {
+    var phone = normalizePhone(row.phone);
+    if (!phone) return;
+    var cur = byPhone[phone];
+    if (!cur) {
+      byPhone[phone] = row;
+      return;
+    }
+    var sorted = sortBoard([cur, row]);
+    byPhone[phone] = sorted[0];
+  });
+  return sortBoard(
+    Object.keys(byPhone).map(function (p) {
+      return byPhone[p];
+    })
+  );
+}
+
 function rankForPhone(board, phone) {
   phone = normalizePhone(phone);
   var best = null;
@@ -203,9 +224,9 @@ async function getLeaderboard(day) {
     .collection("scores")
     .find({ day: day })
     .sort({ priorityPoints: -1, total: -1, coins: -1, ts: 1 })
-    .limit(200)
+    .limit(500)
     .toArray();
-  return sortBoard(rows).slice(0, 50);
+  return bestBoardPerPlayer(rows).slice(0, 50);
 }
 
 async function getUserRank(phone, day) {

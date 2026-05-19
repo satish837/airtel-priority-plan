@@ -222,15 +222,21 @@
   }
 
   function refreshBoardFromApi() {
-    if (!useApi()) return Promise.resolve(getBoard());
+    if (!useApi()) return Promise.resolve(getBoardLocal());
     return apiFetch("/api/leaderboard?day=" + encodeURIComponent(todayKey()))
       .then(function (data) {
         apiBoardCache = data.board || [];
-        return apiBoardCache;
+        return apiBoardCache.slice();
       })
-      .catch(function () {
-        return getBoard();
+      .catch(function (err) {
+        apiBoardCache = null;
+        throw err || new Error("Could not load leaderboard from server");
       });
+  }
+
+  function getBoardLocal() {
+    var key = "airtel_board_" + todayKey();
+    return read(key, []);
   }
 
   function getUser() {
@@ -328,19 +334,20 @@
   }
 
   function getBoard() {
-    if (useApi() && apiBoardCache) return apiBoardCache.slice();
-    var key = "airtel_board_" + todayKey();
-    return read(key, []);
+    if (useApi()) {
+      return apiBoardCache ? apiBoardCache.slice() : [];
+    }
+    return getBoardLocal();
   }
 
   function getBoardAsync() {
-    if (!useApi()) return Promise.resolve(getBoard());
+    if (!useApi()) return Promise.resolve(getBoardLocal());
     return refreshBoardFromApi();
   }
 
   function submitScoreLocal(user, coins, priorityPoints, fastLaneCoins) {
     if (!user) return { entry: null, rank: 0 };
-    var board = getBoard();
+    var board = useApi() ? [] : getBoardLocal();
     var phone = normalizePhone(user.phone);
     var entry = {
       name: user.name,
@@ -370,8 +377,9 @@
         }
       }
     }
-    write("airtel_board_" + todayKey(), board.slice(0, 50));
-    apiBoardCache = board.slice(0, 50);
+    if (!useApi()) {
+      write("airtel_board_" + todayKey(), board.slice(0, 50));
+    }
     return { entry: entry, rank: rank };
   }
 

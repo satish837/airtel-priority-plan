@@ -160,7 +160,33 @@
   }
 
   function renderBoard() {
-    AirtelStorage.getBoardAsync().then(renderBoardWithRows);
+    var list = $("leaderboard-list");
+    if (list) {
+      list.innerHTML =
+        "<li>Loading leaderboard from database…</li>";
+    }
+    var chain = Promise.resolve();
+    if (
+      AirtelStorage.useApi &&
+      AirtelStorage.useApi() &&
+      AirtelStorage.flushPendingScores
+    ) {
+      chain = AirtelStorage.flushPendingScores();
+    }
+    chain
+      .then(function () {
+        return AirtelStorage.getBoardAsync();
+      })
+      .then(function (board) {
+        renderBoardWithRows(board || []);
+      })
+      .catch(function () {
+        if (list) {
+          list.innerHTML =
+            "<li>Could not load leaderboard. Check connection and try again.</li>";
+        }
+        $("daily-winner").textContent = "Today's winner: —";
+      });
   }
 
   function escapeHtml(s) {
