@@ -148,7 +148,11 @@
             : '<span class="badge badge-no">0</span>') +
           "</td>" +
           "<td>" +
-          formatTime(p.lastRunAt) +
+          (p.lastRunAt
+            ? formatTime(p.lastRunAt)
+            : p.playsUsed > 0 && (!p.runsToday || p.runsToday === 0)
+              ? '<span class="badge badge-no" title="Plays counted in DB but no score document for this day — score POST may have failed (retry on next visit).">no DB score</span>'
+              : "—") +
           "</td>" +
           "</tr>"
         );

@@ -425,6 +425,11 @@
         var playAgain = $("btn-play-again");
         if (playAgain) playAgain.disabled = left <= 0;
         showPanel("panel-gameover");
+        if (AirtelStorage.useApi && AirtelStorage.useApi() && AirtelStorage.flushPendingScores) {
+          AirtelStorage.flushPendingScores().then(function () {
+            renderBoard();
+          });
+        }
       });
   }
 

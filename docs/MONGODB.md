@@ -82,7 +82,8 @@ Each lead document is updated with:
 | `canPlayToday` | `true` if user may start another run |
 | `playLimitReached` | `true` after 3 plays used today |
 
-The game checks `/api/leads/status?phone=` when the user enters their phone and again before each start (server increments `daily_plays` atomically).
+If the dashboard shows **plays used** but **0 runs / no DB score**, the browser could not reach `/api/scores` (timeout, offline). Plays are still deducted in MongoDB. The app now **retries** score submission and **queues** failed payloads in `localStorage` (`airtel_pending_scores`) and flushes them on the next visit when the API is reachable.
+
 
 ## Admin dashboard
 

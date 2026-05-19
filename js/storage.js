@@ -9,6 +9,7 @@
   var apiPlayLimitReached = null;
   var apiBoardCache = null;
   var initPromise = null;
+  var PENDING_SCORES_KEY = "airtel_pending_scores";
 
   function apiBase() {
     var base = global.AIRTEL_API_BASE;
@@ -115,6 +116,91 @@
     });
   }
 
+  function readPendingScores() {
+    return read(PENDING_SCORES_KEY, []);
+  }
+
+  function writePendingScores(arr) {
+    write(PENDING_SCORES_KEY, arr.slice(-40));
+  }
+
+  function enqueuePendingScore(body) {
+    var q = readPendingScores();
+    q.push(body);
+    writePendingScores(q);
+  }
+
+  /** POST queued scores after a failed API run (plays already counted in MongoDB). */
+  function flushPendingScores() {
+    if (!useApi()) return Promise.resolve();
+    var q = readPendingScores();
+    if (!q.length) return Promise.resolve();
+    var body = q[0];
+    return apiFetch("/api/scores", {
+      method: "POST",
+      body: JSON.stringify(body)
+    })
+      .then(function (data) {
+        apiBoardCache = data.board || [];
+        q.shift();
+        writePendingScores(q);
+        return flushPendingScores();
+      })
+      .catch(function () {
+        /* leave queue; retry next page load */
+      });
+  }
+
+  function buildScoreBody(user, coins, priorityPoints, fastLaneCoins, extra) {
+    extra = extra || {};
+    return {
+      name: user.name,
+      phone: normalizePhone(user.phone),
+      storeId: user.storeId,
+      coins: coins,
+      priorityPoints: priorityPoints,
+      fastLaneCoins: fastLaneCoins,
+      lettersCollected: extra.lettersCollected,
+      fastLaneUnlocked: extra.fastLaneUnlocked,
+      reason: extra.reason,
+      day: todayKey()
+    };
+  }
+
+  function submitScoreToApiWithRetry(user, coins, priorityPoints, fastLaneCoins, extra, attempt) {
+    attempt = attempt || 0;
+    var body = buildScoreBody(user, coins, priorityPoints, fastLaneCoins, extra);
+    return apiFetch("/api/scores", {
+      method: "POST",
+      body: JSON.stringify(body)
+    })
+      .then(function (data) {
+        apiBoardCache = data.board || [];
+        return { entry: data.entry, rank: data.rank || 0 };
+      })
+      .catch(function () {
+        if (attempt < 3) {
+          var delay = 450 + attempt * 550;
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              resolve(
+                submitScoreToApiWithRetry(
+                  user,
+                  coins,
+                  priorityPoints,
+                  fastLaneCoins,
+                  extra,
+                  attempt + 1
+                )
+              );
+            }, delay);
+          });
+        }
+        enqueuePendingScore(body);
+        return submitScoreLocal(user, coins, priorityPoints, fastLaneCoins);
+      });
+  }
+
   function init() {
     if (!useApi()) return Promise.resolve();
     if (initPromise) return initPromise;
@@ -122,9 +208,16 @@
     initPromise = Promise.all([
       syncReplaysFromApi(user && user.phone),
       refreshBoardFromApi()
-    ]).catch(function () {
-      /* keep cached values if offline */
-    });
+    ])
+      .catch(function () {
+        /* keep cached values if offline */
+      })
+      .then(function () {
+        return flushPendingScores();
+      })
+      .then(function () {
+        return refreshBoardFromApi();
+      });
     return initPromise;
   }
 
@@ -286,28 +379,7 @@
     if (!user) return Promise.resolve({ entry: null, rank: 0 });
     extra = extra || {};
     if (useApi()) {
-      return apiFetch("/api/scores", {
-        method: "POST",
-        body: JSON.stringify({
-          name: user.name,
-          phone: normalizePhone(user.phone),
-          storeId: user.storeId,
-          coins: coins,
-          priorityPoints: priorityPoints,
-          fastLaneCoins: fastLaneCoins,
-          lettersCollected: extra.lettersCollected,
-          fastLaneUnlocked: extra.fastLaneUnlocked,
-          reason: extra.reason,
-          day: todayKey()
-        })
-      })
-        .then(function (data) {
-          apiBoardCache = data.board || [];
-          return { entry: data.entry, rank: data.rank || 0 };
-        })
-        .catch(function () {
-          return submitScoreLocal(user, coins, priorityPoints, fastLaneCoins);
-        });
+      return submitScoreToApiWithRetry(user, coins, priorityPoints, fastLaneCoins, extra);
     }
     return Promise.resolve(
       submitScoreLocal(user, coins, priorityPoints, fastLaneCoins)
@@ -354,6 +426,7 @@
     MAX_REPLAYS: MAX_REPLAYS,
     useApi: useApi,
     init: init,
+    flushPendingScores: flushPendingScores,
     getUser: getUser,
     saveUser: saveUser,
     checkPlayEligibility: checkPlayEligibility,
