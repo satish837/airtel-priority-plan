@@ -55,7 +55,7 @@ location.reload();
 | Collection     | Purpose                                      |
 |----------------|----------------------------------------------|
 | `leads`        | Registration: name, phone, storeId, character |
-| `daily_plays`  | Plays used per phone per day (max 3)         |
+| `daily_plays`  | Plays used per phone per day (max 99)         |
 | `scores`       | Each run: coins, priority points, rank data  |
 
 ## API endpoints
@@ -79,10 +79,10 @@ Each lead document is updated with:
 | Field | Meaning |
 |-------|---------|
 | `playsDay` | Date key `YYYY-MM-DD` |
-| `playsUsedToday` | Runs started today (0–3) |
+| `playsUsedToday` | Runs started today (0–99) |
 | `playsLeftToday` | Remaining plays |
 | `canPlayToday` | `true` if user may start another run |
-| `playLimitReached` | `true` after 3 plays used today |
+| `playLimitReached` | `true` after 99 plays used today |
 
 If the dashboard shows **plays used** but **0 runs / no DB score**, the browser could not reach `/api/scores` (timeout, offline). Plays are still deducted in MongoDB. The app now **retries** score submission and **queues** failed payloads in `localStorage` (`airtel_pending_scores`) and flushes them on the next visit when the API is reachable.
 

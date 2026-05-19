@@ -2,7 +2,7 @@
 
 const { getDb, ensureIndexes } = require("./db");
 
-const MAX_REPLAYS = 3;
+const MAX_REPLAYS = 99;
 
 /** Calendar day for daily limits / scores (India default). Override with AIRTEL_DAY_TIMEZONE=UTC */
 function calendarDayInZone(d, zone) {

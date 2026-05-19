@@ -239,7 +239,9 @@
         updateReplays(phone);
         if (!status.canPlayToday) {
           $("register-error").textContent =
-            "This number has used all 3 plays today. Try again tomorrow.";
+            "This number has used all " +
+            AirtelStorage.MAX_REPLAYS +
+            " plays today. Try again tomorrow.";
         } else if (!$("register-error").textContent) {
           $("register-error").textContent = "";
         }
