@@ -427,22 +427,7 @@
   });
 
   function retryCurrentRun() {
-    showShellTryAgain(false);
-    runEnded = false;
-    reloadGameFrame(function () {
-      runStartCountdown(function () {
-        beginPlayUi();
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 1200);
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 2800);
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 5000);
-      });
-    });
+    window.location.reload();
   }
 
   var shellTryAgain = $("shell-try-again");
