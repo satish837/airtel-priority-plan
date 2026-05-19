@@ -1,6 +1,7 @@
 "use strict";
 
 const { applyCors, handleOptions } = require("./_cors");
+const { parseJsonBody } = require("./_body");
 const handlers = require("../server/lib/handlers");
 
 module.exports = async function handler(req, res) {
@@ -11,7 +12,7 @@ module.exports = async function handler(req, res) {
     return;
   }
   try {
-    var result = await handlers.submitScore(req.body || {});
+    var result = await handlers.submitScore(parseJsonBody(req));
     res.status(200).json({
       ok: true,
       entry: result.entry,

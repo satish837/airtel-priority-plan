@@ -18,6 +18,7 @@ module.exports = async function handler(req, res) {
   try {
     var day = req.query && req.query.day;
     var data = await handlers.getDashboardData(day);
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.status(200).json({ ok: true, ...data });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

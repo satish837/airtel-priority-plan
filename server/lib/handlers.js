@@ -45,9 +45,11 @@ function normalizePhone(phone) {
 
 function sortBoard(board) {
   return board.slice().sort(function (a, b) {
+    var ta = (a.total != null ? a.total : (a.coins || 0) + (a.fastLaneCoins || 0)) || 0;
+    var tb = (b.total != null ? b.total : (b.coins || 0) + (b.fastLaneCoins || 0)) || 0;
     return (
+      tb - ta ||
       (b.priorityPoints || 0) - (a.priorityPoints || 0) ||
-      (b.total || 0) - (a.total || 0) ||
       (b.coins || 0) - (a.coins || 0) ||
       (a.ts || 0) - (b.ts || 0)
     );
@@ -255,7 +257,7 @@ async function getLeaderboard(day) {
   var rows = await db
     .collection("scores")
     .find({ day: { $in: keys } })
-    .sort({ priorityPoints: -1, total: -1, coins: -1, ts: 1 })
+    .sort({ total: -1, priorityPoints: -1, coins: -1, ts: 1 })
     .limit(800)
     .toArray();
   return bestBoardPerPlayer(rows).slice(0, 50);
@@ -278,8 +280,12 @@ async function getDashboardData(day) {
     .limit(5000)
     .toArray();
 
-  var playsToday = await db.collection("daily_plays").find({ day: day }).toArray();
-  var scoreDayKeys = adjacentDayKeys(day);
+  var dayKeys = adjacentDayKeys(day);
+  var playsToday = await db
+    .collection("daily_plays")
+    .find({ day: { $in: dayKeys } })
+    .toArray();
+  var scoreDayKeys = dayKeys;
   var scoresToday = await db
     .collection("scores")
     .find({ day: { $in: scoreDayKeys } })
@@ -289,7 +295,19 @@ async function getDashboardData(day) {
 
   var playsMap = {};
   playsToday.forEach(function (p) {
-    playsMap[normalizePhone(p.phone)] = p;
+    var phone = normalizePhone(p.phone);
+    var existing = playsMap[phone];
+    if (!existing) {
+      playsMap[phone] = p;
+      return;
+    }
+    if (p.day === day) {
+      playsMap[phone] = p;
+      return;
+    }
+    if (existing.day !== day && (p.used || 0) > (existing.used || 0)) {
+      playsMap[phone] = p;
+    }
   });
 
   var scoreStats = {};
@@ -336,8 +354,8 @@ async function getDashboardData(day) {
       updatedAt: lead.updatedAt || null,
       playsUsed: used,
       playsLeft: left,
-      canPlayToday: lead.canPlayToday != null ? !!lead.canPlayToday : left > 0,
-      playLimitReached: !!lead.playLimitReached || left <= 0,
+      canPlayToday: left > 0,
+      playLimitReached: left <= 0,
       runsToday: st.runs,
       bestPriority: st.bestPriority,
       bestCoins: st.bestCoins,
@@ -357,6 +375,7 @@ async function getDashboardData(day) {
     var play = playsMap[phone];
     var st = scoreStats[phone];
     var used = play && play.used ? play.used : 0;
+    var leftOrphan = Math.max(0, MAX_REPLAYS - used);
     players.push({
       phone: phone,
       name: "",
@@ -365,7 +384,9 @@ async function getDashboardData(day) {
       registeredAt: null,
       updatedAt: null,
       playsUsed: used,
-      playsLeft: Math.max(0, MAX_REPLAYS - used),
+      playsLeft: leftOrphan,
+      canPlayToday: leftOrphan > 0,
+      playLimitReached: leftOrphan <= 0,
       runsToday: st.runs,
       bestPriority: st.bestPriority,
       bestCoins: st.bestCoins,
@@ -376,13 +397,18 @@ async function getDashboardData(day) {
   });
 
   players.sort(function (a, b) {
-    return (b.bestPriority || 0) - (a.bestPriority || 0) || (b.lastRunAt || 0) - (a.lastRunAt || 0);
+    return (
+      (b.lastRunAt || 0) - (a.lastRunAt || 0) ||
+      (b.bestCoins || 0) - (a.bestCoins || 0) ||
+      (b.bestPriority || 0) - (a.bestPriority || 0)
+    );
   });
 
   var uniquePlayersToday = Object.keys(scoreStats).length;
   var topScore = 0;
   scoresToday.forEach(function (s) {
-    topScore = Math.max(topScore, s.priorityPoints || 0);
+    var t = (s.total != null ? s.total : (s.coins || 0) + (s.fastLaneCoins || 0)) || 0;
+    topScore = Math.max(topScore, t);
   });
 
   var recentRuns = scoresToday.slice(0, 100).map(function (s) {
@@ -406,6 +432,7 @@ async function getDashboardData(day) {
       totalRegistered: leads.length,
       runsToday: scoresToday.length,
       uniquePlayersToday: uniquePlayersToday,
+      topCoinScore: topScore,
       topPriorityScore: topScore
     },
     players: players,

@@ -31,9 +31,9 @@
 
   /**
    * MongoDB API base URL.
-   * - "" = localStorage only (no server)
+   * - "" = same-origin /api/* (Vercel production)
    * - "http://localhost:3001" = local API (npm run api)
-   * - "" = same-origin Vercel routes at /api/* (paths include /api/...)
+   * - "local" = localStorage only (no MongoDB)
    */
   if (typeof window.AIRTEL_API_BASE === "undefined") {
     var host = window.location && window.location.hostname;

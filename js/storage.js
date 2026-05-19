@@ -17,8 +17,12 @@
     return String(base).replace(/\/$/, "");
   }
 
+  /** "" = same-origin /api/* on Vercel. Use AIRTEL_API_BASE = "local" to disable API. */
   function useApi() {
-    return !!apiBase();
+    var base = global.AIRTEL_API_BASE;
+    if (base === false || base === "local" || base === "off") return false;
+    if (base === undefined || base === null) return false;
+    return true;
   }
 
   function todayKey() {
@@ -235,7 +239,12 @@
 
   function refreshBoardFromApi() {
     if (!useApi()) return Promise.resolve(getBoardLocal());
-    return apiFetch("/api/leaderboard?day=" + encodeURIComponent(todayKey()))
+    return apiFetch(
+      "/api/leaderboard?day=" +
+        encodeURIComponent(todayKey()) +
+        "&_cb=" +
+        Date.now()
+    )
       .then(function (data) {
         apiBoardCache = data.board || [];
         return apiBoardCache.slice();
@@ -268,7 +277,8 @@
         day: todayKey()
       })
     }).then(function (data) {
-      if (data.playStatus) applyPlayStatus(data.playStatus);
+      var ps = data.playStatus || (data.lead && data.lead.playStatus);
+      if (ps) applyPlayStatus(ps);
       return syncReplaysFromApi(user.phone).then(function () {
         return user;
       });

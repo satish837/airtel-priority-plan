@@ -30,7 +30,19 @@
   }
 
   function todayKey() {
-    return new Date().toISOString().slice(0, 10);
+    var d = new Date();
+    var tz =
+      (typeof window.AIRTEL_DAY_TIMEZONE !== "undefined" &&
+        window.AIRTEL_DAY_TIMEZONE) ||
+      "Asia/Kolkata";
+    if (tz === "UTC") {
+      return d.toISOString().slice(0, 10);
+    }
+    try {
+      return d.toLocaleDateString("en-CA", { timeZone: tz });
+    } catch (e) {
+      return d.toISOString().slice(0, 10);
+    }
   }
 
   function $(id) {
@@ -73,8 +85,11 @@
       apiBase() +
       "/api/dashboard?day=" +
       encodeURIComponent(day) +
+      "&_cb=" +
+      Date.now() +
       (key ? "&key=" + encodeURIComponent(key) : "");
     return fetch(url, {
+      cache: "no-store",
       headers: key ? { "x-admin-key": key } : {}
     }).then(function (res) {
       return parseJsonResponse(res).then(function (data) {
@@ -90,7 +105,7 @@
     $("stat-registered").textContent = stats.totalRegistered || 0;
     $("stat-runs").textContent = stats.runsToday || 0;
     $("stat-active").textContent = stats.uniquePlayersToday || 0;
-    $("stat-top").textContent = stats.topPriorityScore || 0;
+    $("stat-top").textContent = stats.topCoinScore != null ? stats.topCoinScore : stats.topPriorityScore || 0;
   }
 
   function renderPlayers(players, filter) {
@@ -222,8 +237,8 @@
     fetchDashboard(day)
       .then(function (data) {
         cachedData = data;
-        showStatus("", false);
-        $("status-bar").classList.add("hidden");
+        var updated = new Date().toLocaleTimeString();
+        showStatus("Updated " + updated + " · auto-refresh every 30s", false);
         renderStats(data.stats || {});
         renderPlayers(data.players || [], $("search").value);
         renderRuns(data.recentRuns || [], $("search").value);
@@ -247,6 +262,7 @@
     $("auth-panel").classList.add("hidden");
     $("dashboard-main").classList.remove("hidden");
     load();
+    startAutoRefresh();
   }
 
   function exportCsv() {
@@ -310,6 +326,16 @@
     });
   }
 
+  var refreshTimer = null;
+
+  function startAutoRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(function () {
+      if ($("dashboard-main").classList.contains("hidden")) return;
+      load();
+    }, 30000);
+  }
+
   $("filter-day").value = todayKey();
   initTabs();
 
@@ -336,6 +362,8 @@
   });
   $("btn-export").addEventListener("click", exportCsv);
   $("btn-logout").addEventListener("click", function () {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = null;
     setAdminKey("");
     showAuth();
   });

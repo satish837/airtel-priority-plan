@@ -637,6 +637,18 @@ html.airtel-fastlane-active {
   font-weight: 600;
 }
 
+.leaderboard-list .name .lb-phone {
+  font-weight: 500;
+  font-size: 0.72em;
+  opacity: 0.85;
+}
+
+.leaderboard-list .score .lb-sub {
+  font-size: 0.75em;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
 .leaderboard-hint {
   text-align: center;
   font-size: 0.75rem;

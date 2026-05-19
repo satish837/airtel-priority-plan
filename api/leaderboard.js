@@ -15,6 +15,7 @@ module.exports = async function handler(req, res) {
     var day = req.query && req.query.day;
     if (phone) {
       var rank = await handlers.getUserRank(phone, day);
+      res.setHeader("Cache-Control", "private, no-store, max-age=0");
       res.status(200).json({
         ok: true,
         phone: handlers.normalizePhone(phone),
@@ -23,6 +24,7 @@ module.exports = async function handler(req, res) {
       return;
     }
     var board = await handlers.getLeaderboard(day);
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.status(200).json({
       ok: true,
       day: day || handlers.todayKey(),

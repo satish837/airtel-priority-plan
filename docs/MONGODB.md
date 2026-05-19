@@ -36,7 +36,7 @@ python3 serve.py
 To use **localStorage only** (no MongoDB), set in the browser console before play:
 
 ```js
-window.AIRTEL_API_BASE = "";
+window.AIRTEL_API_BASE = "local";
 location.reload();
 ```
 

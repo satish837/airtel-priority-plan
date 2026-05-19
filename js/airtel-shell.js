@@ -143,14 +143,31 @@
     }
     board.forEach(function (row, i) {
       var li = document.createElement("li");
+      var phone = String(row.phone || "").replace(/\s/g, "");
+      var suffix =
+        phone.length >= 4
+          ? ' <span class="lb-phone">· …' + escapeHtml(phone.slice(-4)) + "</span>"
+          : "";
+      var coinTotal =
+        row.total != null
+          ? row.total
+          : (Number(row.coins) || 0) + (Number(row.fastLaneCoins) || 0);
+      var pp = Number(row.priorityPoints) || 0;
+      var scoreLine =
+        coinTotal +
+        " pts" +
+        (pp > 0 && pp !== coinTotal
+          ? ' <span class="lb-sub">(priority ' + pp + ")</span>"
+          : "");
       li.innerHTML =
         '<span class="rank">' +
         (i + 1) +
         '</span><span class="name">' +
-        escapeHtml(row.name) +
+        escapeHtml(row.name || "—") +
+        suffix +
         '</span><span class="score">' +
-        (row.priorityPoints != null ? row.priorityPoints : row.total) +
-        " pts</span>";
+        scoreLine +
+        "</span>";
       list.appendChild(li);
     });
     var w = board.length ? board[0] : null;
@@ -366,7 +383,8 @@
             "No plays left today. Try again tomorrow!";
         } else if (AirtelStorage.useApi()) {
           $("register-error").textContent =
-            "Could not connect to server. Check API and try again.";
+            (err && err.message) ||
+            "Could not save registration. Check API and try again.";
         } else {
           $("register-error").textContent =
             "No plays left today. Try again tomorrow!";

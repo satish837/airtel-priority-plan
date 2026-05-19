@@ -30,6 +30,7 @@ app.get("/api/leads/status", async function (req, res) {
       return;
     }
     var status = await handlers.getLeadPlayStatus(phone, req.query.day);
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.json({ ok: true, ...status });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -39,7 +40,12 @@ app.get("/api/leads/status", async function (req, res) {
 app.post("/api/leads", async function (req, res) {
   try {
     var lead = await handlers.upsertLead(req.body || {});
-    res.json({ ok: true, lead: lead, playStatus: lead.playStatus });
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
+    res.json({
+      ok: true,
+      lead: lead,
+      playStatus: lead.playStatus
+    });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
@@ -53,6 +59,7 @@ app.get("/api/plays", async function (req, res) {
       return;
     }
     var status = await handlers.getPlaysStatus(phone, req.query.day);
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.json({ ok: true, ...status });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -63,6 +70,7 @@ app.post("/api/plays", async function (req, res) {
   try {
     var phone = (req.body && req.body.phone) || "";
     var result = await handlers.usePlay(phone, req.body && req.body.day);
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.json({ ok: result.ok, ...result });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -73,6 +81,7 @@ app.get("/api/leaderboard", async function (req, res) {
   try {
     if (req.query.phone) {
       var rank = await handlers.getUserRank(req.query.phone, req.query.day);
+      res.setHeader("Cache-Control", "private, no-store, max-age=0");
       res.json({
         ok: true,
         phone: handlers.normalizePhone(req.query.phone),
@@ -81,6 +90,7 @@ app.get("/api/leaderboard", async function (req, res) {
       return;
     }
     var board = await handlers.getLeaderboard(req.query.day);
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.json({
       ok: true,
       day: req.query.day || handlers.todayKey(),
@@ -94,6 +104,7 @@ app.get("/api/leaderboard", async function (req, res) {
 app.post("/api/scores", async function (req, res) {
   try {
     var result = await handlers.submitScore(req.body || {});
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.json({
       ok: true,
       entry: result.entry,
@@ -112,6 +123,7 @@ app.get("/api/dashboard", async function (req, res) {
   }
   try {
     var data = await handlers.getDashboardData(req.query.day);
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.json({ ok: true, ...data });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

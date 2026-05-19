@@ -1,6 +1,7 @@
 "use strict";
 
 const { applyCors, handleOptions } = require("./_cors");
+const { parseJsonBody } = require("./_body");
 const handlers = require("../server/lib/handlers");
 
 module.exports = async function handler(req, res) {
@@ -24,7 +25,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === "POST") {
     try {
-      var body = req.body || {};
+      var body = parseJsonBody(req);
       var result = await handlers.usePlay(body.phone, body.day);
       res.status(200).json({ ok: result.ok, ...result });
     } catch (err) {
