@@ -2,7 +2,7 @@
   "use strict";
 
   var LETTERS = ["P", "R", "I", "O", "R", "I", "T", "Y"];
-  var UNLIMITED_PLAYS = true;
+  var UNLIMITED_PLAYS = false;
   var MAX_REPLAYS = 3;
 
   function todayKey() {
@@ -62,10 +62,12 @@
   }
 
   function submitScore(user, coins, priorityPoints, fastLaneCoins) {
+    if (!user) return { entry: null, rank: 0 };
     var board = getBoard();
+    var phone = String(user.phone || "").replace(/\s/g, "");
     var entry = {
       name: user.name,
-      phone: user.phone,
+      phone: phone,
       storeId: user.storeId,
       coins: coins,
       priorityPoints: priorityPoints,
@@ -75,10 +77,39 @@
     };
     board.push(entry);
     board.sort(function (a, b) {
-      return b.total - a.total || b.coins - a.coins || a.ts - b.ts;
+      return (
+        (b.priorityPoints || 0) - (a.priorityPoints || 0) ||
+        b.total - a.total ||
+        b.coins - a.coins ||
+        a.ts - b.ts
+      );
     });
+    var rank = board.indexOf(entry) + 1;
+    if (rank < 1) {
+      for (var i = 0; i < board.length; i++) {
+        if (board[i].ts === entry.ts && board[i].phone === phone) {
+          rank = i + 1;
+          break;
+        }
+      }
+    }
     write("airtel_board_" + todayKey(), board.slice(0, 50));
-    return entry;
+    return { entry: entry, rank: rank };
+  }
+
+  function getUserRank(phone) {
+    phone = String(phone || "").replace(/\s/g, "");
+    if (!phone) return null;
+    var board = getBoard();
+    var best = null;
+    for (var i = 0; i < board.length; i++) {
+      var rowPhone = String(board[i].phone || "").replace(/\s/g, "");
+      if (rowPhone === phone) {
+        var r = i + 1;
+        if (best === null || r < best) best = r;
+      }
+    }
+    return best;
   }
 
   function getDailyWinner() {
@@ -96,6 +127,7 @@
     useReplay: useReplay,
     getBoard: getBoard,
     submitScore: submitScore,
+    getUserRank: getUserRank,
     getDailyWinner: getDailyWinner,
     todayKey: todayKey
   };

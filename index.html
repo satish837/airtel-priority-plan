@@ -48,11 +48,9 @@
         </div>
         <div class="instructions-block">
           <p class="instructions-lead">Play and win the game in 3 easy steps:</p>
-          <ol class="instructions">
-            <li>Collect all letters of the word PRIORITY</li>
-            <li>Once the letters are corrected, Fast Lane will be unlocked</li>
-            <li>Collect coins on Fast Lane and user with maximum coins wins</li>
-          </ol>
+          <p class="instruction-step">Collect all letters of the word PRIORITY</p>
+          <p class="instruction-step">Once the letters are corrected, Fast Lane will be unlocked</p>
+          <p class="instruction-step">Collect coins on Fast Lane and user with maximum coins wins</p>
           <p class="instructions-note">Note: The game is 3 minutes long and you have 3 attempts for 1 day</p>
         </div>
         <p class="meta" id="replays-left" hidden></p>
@@ -70,6 +68,15 @@
       <span id="hud-timer" class="hidden">60s</span>
     </div>
 
+    <button
+      type="button"
+      id="shell-try-again"
+      class="shell-try-again hidden"
+      aria-hidden="true"
+    >
+      Try Again
+    </button>
+
     <!-- Game over -->
     <section id="panel-gameover" class="panel" aria-label="Game over">
       <div class="panel-inner">
@@ -77,20 +84,15 @@
           <img src="images/logo-white.png" alt="Airtel">
           <h1 id="go-title">Game Over</h1>
         </header>
-        <div class="card">
-          <h2>Priority points summary</h2>
-          <div class="stats-grid">
-            <div class="stat"><div class="val" id="go-coins">0</div><div class="lbl">Total coins</div></div>
-            <div class="stat"><div class="val" id="go-priority">0</div><div class="lbl">Priority points</div></div>
-            <div class="stat"><div class="val" id="go-letters">0 / 8</div><div class="lbl">Letters</div></div>
-            <div class="stat"><div class="val" id="go-fastlane">—</div><div class="lbl">Fast Lane</div></div>
-          </div>
+        <div class="card go-summary">
+          <p class="go-priority-score">
+            Your Priority Score: <strong id="go-priority-score">0</strong>
+          </p>
+          <p class="go-rank-msg" id="go-rank-msg"></p>
+          <p class="go-unlock-msg hidden" id="go-unlock-msg" aria-hidden="true">
+            PRIORITY collected. Fast Lane unlocked.
+          </p>
         </div>
-        <div class="promo-box">
-          <strong>Priority Postpaid</strong>
-          <p id="promo-nugget"></p>
-        </div>
-        <p id="replay-msg" class="meta"></p>
         <button type="button" class="btn btn-primary" id="btn-play-again">Play Again</button>
         <button type="button" class="btn btn-secondary" id="btn-go-leaderboard">Leaderboard</button>
         <button type="button" class="btn btn-ghost" id="btn-back-register">Back</button>
@@ -113,7 +115,7 @@
   </div>
 
   <script src="game/airtel-config.js"></script>
-  <script src="js/storage.js"></script>
-  <script src="js/airtel-shell.js"></script>
+  <script src="js/storage.js?v=3"></script>
+  <script src="js/airtel-shell.js?v=4"></script>
 </body>
 </html>

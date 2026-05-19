@@ -7,13 +7,13 @@
                     "index":1,
                     "site":1,
                     "siteRestrictions":[1],
-                    "task":"Reach Distance",
+                    "task":"Unlock Fast Lane",
                     "type":"simple",
                     "missionType":"ReachDistance",
                     "missionGoal":[
-                        400,
-                        600,
-                        800
+                        99999,
+                        99999,
+                        99999
                     ],
                     "style":"Green",
                     "rewardIcon":"IconCoins",

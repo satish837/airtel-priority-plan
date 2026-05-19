@@ -7,6 +7,10 @@
 
   var LETTERS = ["P", "R", "I", "O", "R", "I", "T", "Y"];
   var FAST_LANE_SEC = 60;
+  var PLAY_SESSION_SEC =
+    typeof window.AIRTEL_PLAY_SESSION_SEC === "number"
+      ? window.AIRTEL_PLAY_SESSION_SEC
+      : 180;
   var PRIORITY_KEY = "airtel_priority_v1";
   var sessionCharacterKey =
     (typeof window !== "undefined" && window.AIRTEL_CHARACTER) || "SuperNom";
@@ -18,12 +22,14 @@
     nextIndex: 0,
     fastLane: false,
     fastLaneEnd: 0,
+    sessionEnd: 0,
     didFastLane: false,
     coins: 0,
     fastLaneCoins: 0,
     lastScore: 0,
     hooked: false,
-    _savedTossDistance: undefined
+    _savedTossDistance: undefined,
+    _crashUiShown: false
   };
 
   function saveProgress() {
@@ -238,14 +244,18 @@
       return;
     }
     var remain = 0;
+    var sessionRemain = 0;
     if (state.fastLane) {
       remain = Math.max(0, (state.fastLaneEnd - Date.now()) / 1000);
+    } else if (state.sessionEnd) {
+      sessionRemain = Math.max(0, (state.sessionEnd - Date.now()) / 1000);
     }
     post("airtel:hud", {
       collected: collectedSnapshot(),
       coins: state.coins + state.fastLaneCoins,
       phase: state.fastLane ? "fastlane" : "collect",
-      fastLaneRemain: remain
+      fastLaneRemain: remain,
+      sessionRemain: sessionRemain
     });
   }
 
@@ -392,11 +402,14 @@
   function enterFastLane(app) {
     if (state.fastLane) return;
     stopPriorityCollection();
+    clearSessionTimerInterval();
+    state.sessionEnd = 0;
     state.fastLane = true;
     state.didFastLane = true;
     state.fastLaneEnd = Date.now() + FAST_LANE_SEC * 1000;
     saveProgress();
     post("airtel:flash", { message: "Fast Lane Unlocked!" });
+    pushHud();
 
     if (app) {
       try {
@@ -484,6 +497,60 @@
 
   var deathEndTimer = null;
   var fastLaneInterval = null;
+  var sessionTimerInterval = null;
+
+  function patchMissionOneForTimedPlay() {
+    try {
+      if (typeof MissionsManager === "undefined" || !MissionsManager.getInstance) {
+        return;
+      }
+      var mm = MissionsManager.getInstance();
+      var model =
+        (typeof mm.getMissionsModel === "function" && mm.getMissionsModel()) ||
+        mm.missionsModel;
+      if (!model || !model.chapters || !model.chapters[0] || !model.chapters[0].missions) {
+        return;
+      }
+      var m = model.chapters[0].missions[0];
+      if (!m || m.index !== 1) return;
+      m.task = "Play for 3 minutes";
+      m.missionType = "ReachDistance";
+      m.missionGoal = [99999, 99999, 99999];
+    } catch (e) {}
+  }
+
+  function clearSessionTimerInterval() {
+    if (sessionTimerInterval) {
+      clearInterval(sessionTimerInterval);
+      sessionTimerInterval = null;
+    }
+  }
+
+  function beginPlaySessionTimer() {
+    clearSessionTimerInterval();
+    state.sessionEnd = Date.now() + PLAY_SESSION_SEC * 1000;
+    sessionTimerInterval = setInterval(function () {
+      if (!state.active || gameOverSent) {
+        clearSessionTimerInterval();
+        return;
+      }
+      if (state.fastLane) return;
+      pushHud();
+      if (Date.now() >= state.sessionEnd) {
+        clearSessionTimerInterval();
+        onPlaySessionExpired(getApp());
+      }
+    }, 500);
+  }
+
+  function onPlaySessionExpired(app) {
+    if (!state.active || gameOverSent) return;
+    if (allCollected()) {
+      enterFastLane(app);
+      return;
+    }
+    endSession("complete", app);
+  }
 
   function setMissionResultTint(on) {
     try {
@@ -503,6 +570,92 @@
     document.body.appendChild(el);
   }
 
+  function ensureTryAgainCta() {
+    var btn = document.getElementById("airtel-try-again-cta");
+    if (btn) return btn;
+    btn = document.createElement("button");
+    btn.id = "airtel-try-again-cta";
+    btn.type = "button";
+    btn.className = "hidden";
+    btn.textContent = "Try Again";
+    btn.setAttribute("aria-hidden", "true");
+    btn.addEventListener("click", onTryAgainClick);
+    document.body.appendChild(btn);
+    return btn;
+  }
+
+  function showTryAgainCta(show) {
+    var btn = ensureTryAgainCta();
+    btn.classList.toggle("hidden", !show);
+    btn.setAttribute("aria-hidden", show ? "false" : "true");
+  }
+
+  function showMissionFailUi(app) {
+    if (retryInProgress || state._crashUiShown) return;
+    state._crashUiShown = true;
+    state.active = false;
+    pauseGame(app);
+    stopPriorityCollection();
+    setMissionResultTint(true);
+    showTryAgainCta(true);
+    post("airtel:mission-fail", buildGameOverPayload("crash"));
+  }
+
+  function hideMissionFailUi() {
+    state._crashUiShown = false;
+    showTryAgainCta(false);
+    setMissionResultTint(false);
+  }
+
+  function resetGameStateToRunning(app) {
+    var ctrl = findGameStateController(app);
+    if (!ctrl || typeof GameState === "undefined") return false;
+    try {
+      if (typeof ctrl.setGameState === "function") {
+        ctrl.setGameState(GameState.RUNNING);
+        return true;
+      }
+      if ("gameState" in ctrl) ctrl.gameState = GameState.RUNNING;
+      else if ("state" in ctrl) ctrl.state = GameState.RUNNING;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function dismissNativeResultUi(app) {
+    if (!app || typeof EventTypes === "undefined") return;
+    try {
+      app.fire(EventTypes.HIDE_TRANSITION_SCREEN, 0, function () {});
+      app.fire(EventTypes.HIDE_TRANSITION_SCREEN, 0.35, function () {});
+    } catch (e) {}
+  }
+
+  function onTryAgainClick() {
+    hideMissionFailUi();
+    if (isAirtelEmbed()) {
+      post("airtel:request-retry");
+      return;
+    }
+    var app = getApp();
+    retryInProgress = true;
+    gameOverSent = false;
+    state.active = false;
+    gameplayWasRunning = false;
+    resetProgress();
+    try {
+      localStorage.removeItem(PRIORITY_KEY);
+    } catch (e) {}
+    if (app) {
+      try {
+        app.timeScale = 1;
+      } catch (e) {}
+      dismissNativeResultUi(app);
+      resetGameStateToRunning(app);
+    }
+    restartAirtelGameplay(app);
+  }
+
   function clearFastLaneInterval() {
     if (fastLaneInterval) {
       clearInterval(fastLaneInterval);
@@ -512,6 +665,7 @@
 
   function clearEndTimers() {
     clearFastLaneInterval();
+    clearSessionTimerInterval();
     if (deathEndTimer) {
       clearTimeout(deathEndTimer);
       deathEndTimer = null;
@@ -536,7 +690,15 @@
     var payload = buildGameOverPayload(reason);
     state.fastLane = false;
     state.fastLaneEnd = 0;
+
+    if (reason === "crash") {
+      showMissionFailUi(app);
+      return;
+    }
+
     notifyRunEnded();
+
+    showTryAgainCta(false);
 
     if (!gameOverSent) {
       if (!state.active) {
@@ -551,12 +713,7 @@
       } catch (e) {}
     }
 
-    if (reason === "crash") {
-      setMissionResultTint(true);
-    } else {
-      setMissionResultTint(false);
-    }
-
+    setMissionResultTint(false);
     postGameOver(payload);
   }
 
@@ -567,6 +724,17 @@
   function onNativeMissionComplete(app) {
     app = app || getApp();
     if (!state.active || gameOverSent) return;
+
+    /* Timed mission 1: ignore distance-based completion while session clock runs */
+    if (
+      state.sessionEnd &&
+      Date.now() < state.sessionEnd &&
+      !state.fastLane &&
+      !state.didFastLane &&
+      !allCollected()
+    ) {
+      return;
+    }
 
     if (state.fastLane || state.didFastLane) {
       endSession("complete", app);
@@ -677,6 +845,7 @@
   var gameplayPrimed = false;
   var runBegun = false;
   var gameOverSent = false;
+  var retryInProgress = false;
 
   /* In-world PRIORITY letters (mission 1 is Reach Distance — game never spawns them) */
   var letterLayer = null;
@@ -880,6 +1049,10 @@
 
     var gs = readGameState(findGameStateController(app));
     if (gs === GameState.RUNNING) {
+      if (retryInProgress) {
+        retryInProgress = false;
+        state.active = true;
+      }
       gameplayWasRunning = true;
       if (!lettersEnabled) {
         lettersEnabled = true;
@@ -887,6 +1060,7 @@
         if (letterLayer) letterLayer.style.display = "";
         letterSpawnCd = 0.5;
       }
+      pushHud();
       return;
     }
 
@@ -895,23 +1069,13 @@
       deathEndTimer = null;
     }
 
-    if (gameplayWasRunning && gs === GameState.DEAD && state.active) {
-      setMissionResultTint(true);
-      stopPriorityCollection();
-      if (state.fastLane) {
-        endSession("crash", app);
-        return;
-      }
-      if (!deathEndTimer) {
-        deathEndTimer = setTimeout(function () {
-          deathEndTimer = null;
-          if (!state.active || gameOverSent) return;
-          var now = readGameState(findGameStateController(app));
-          if (now === GameState.DEAD) {
-            endSession("crash", app);
-          }
-        }, 2200);
-      }
+    if (
+      !retryInProgress &&
+      gameplayWasRunning &&
+      gs === GameState.DEAD &&
+      state.active
+    ) {
+      showMissionFailUi(app);
       return;
     }
 
@@ -929,10 +1093,11 @@
       return;
     }
     try {
+      patchMissionOneForTimedPlay();
       var endless =
         typeof isEndlessMode === "function" ? isEndlessMode() : false;
       /* Load mission/level assets while the lead form is still visible */
-      MissionsManager.getInstance().launchSelectedMode(endless, true, 0);
+      MissionsManager.getInstance().launchSelectedMode(endless, false, 0);
       gameplayPrimed = true;
       app.timeScale = 0;
     } catch (e) {
@@ -965,6 +1130,13 @@
     if (!e.data || !e.data.type) return;
     if (e.data.type === "airtel:stop-letters") {
       stopPriorityCollection();
+      return;
+    }
+    if (e.data.type === "airtel:retry-run") {
+      onTryAgainClick();
+      return;
+    }
+    if (e.data.type === "airtel:request-retry") {
       return;
     }
     if (e.data.type !== "airtel:start-session") return;
@@ -1007,9 +1179,10 @@
       return false;
     }
     try {
+      patchMissionOneForTimedPlay();
       var endless =
         typeof isEndlessMode === "function" ? isEndlessMode() : false;
-      MissionsManager.getInstance().launchSelectedMode(endless, true, 0);
+      MissionsManager.getInstance().launchSelectedMode(endless, false, 0);
       gameplayPrimed = true;
       return true;
     } catch (e) {
@@ -1022,7 +1195,7 @@
     app = app || getApp();
     if (!app) return false;
 
-    setMissionResultTint(false);
+    hideMissionFailUi();
     runBegun = true;
     gameOverSent = false;
     gameplayPrimed = false;
@@ -1037,6 +1210,8 @@
     } catch (e) {}
 
     applyAirtelCharacter(sessionCharacterKey);
+    dismissNativeResultUi(app);
+    resetGameStateToRunning(app);
     launchFreshMission(app);
     beginRunUnstick(app);
 
@@ -1048,8 +1223,14 @@
     } catch (e) {}
 
     kickStartGame();
+    beginPlaySessionTimer();
     startLetterSpawner(app);
-    pushHud();
+    setTimeout(function () {
+      dismissNativeResultUi(app);
+    }, 400);
+    setTimeout(function () {
+      if (!retryInProgress) pushHud();
+    }, 800);
     return true;
   }
 
@@ -1080,7 +1261,8 @@
   }
 
   function resetAirtelSession() {
-    setMissionResultTint(false);
+    retryInProgress = false;
+    hideMissionFailUi();
     clearEndTimers();
     gameOverSent = false;
     runBegun = false;
@@ -1092,6 +1274,7 @@
     state.lastScore = 0;
     state.fastLane = false;
     state.fastLaneEnd = 0;
+    state.sessionEnd = 0;
     state.didFastLane = false;
     state._savedTossDistance = undefined;
     haltLetters();

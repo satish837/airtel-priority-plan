@@ -14,3 +14,40 @@
     rgba(160, 20, 10, 0.35) 100%
   );
 }
+
+/* Try Again CTA over native mission-fail (TRY AGAIN / rank) screen */
+#airtel-try-again-cta {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom, 18px));
+  transform: translateX(-50%);
+  z-index: 2147483646;
+  min-width: min(88vw, 320px);
+  padding: 16px 28px;
+  border: none;
+  border-radius: 999px;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e60000;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#airtel-try-again-cta:hover {
+  transform: translateX(-50%) scale(1.03);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
+}
+
+#airtel-try-again-cta:active {
+  transform: translateX(-50%) scale(0.98);
+}
+
+#airtel-try-again-cta.hidden {
+  display: none;
+}

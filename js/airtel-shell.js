@@ -1,13 +1,6 @@
 (function () {
   "use strict";
 
-  var PROMO = [
-    "Priority Postpaid — skip the queue with exclusive benefits.",
-    "Upgrade to Airtel Priority Postpaid for faster data & VIP support.",
-    "Priority members get premium OTT, roaming packs & more.",
-    "Your lane just got faster — imagine that with Priority Postpaid!"
-  ];
-
   var LETTERS = AirtelStorage.LETTERS;
   var frame = document.getElementById("game-frame");
   var runHud = document.getElementById("run-hud");
@@ -17,6 +10,7 @@
   var sessionStarted = false;
   var pendingSession = false;
   var runEnded = false;
+  var scoreSubmittedThisRun = false;
   var gameFrameBase = frame
     ? frame.getAttribute("src").split("#")[0].split("?")[0] +
       "?origin=https%3A%2F%2Fgamesnacks.com&gameCenterId=gamesnacks"
@@ -48,20 +42,36 @@
   }
 
   function setFastLaneGlow(active) {
-    if (!fastlaneGlow) return;
-    if (active) {
-      fastlaneGlow.classList.add("active");
-      fastlaneGlow.classList.remove("hidden");
-      fastlaneGlow.setAttribute("aria-hidden", "false");
-    } else {
-      fastlaneGlow.classList.remove("active");
-      fastlaneGlow.classList.add("hidden");
-      fastlaneGlow.setAttribute("aria-hidden", "true");
+    var shell = document.getElementById("shell");
+    if (fastlaneGlow) {
+      if (active) {
+        fastlaneGlow.classList.add("active");
+        fastlaneGlow.classList.remove("hidden");
+        fastlaneGlow.setAttribute("aria-hidden", "false");
+      } else {
+        fastlaneGlow.classList.remove("active");
+        fastlaneGlow.classList.add("hidden");
+        fastlaneGlow.setAttribute("aria-hidden", "true");
+      }
     }
+    if (shell) {
+      shell.classList.toggle("fastlane-active", !!active);
+    }
+    try {
+      document.documentElement.classList.toggle("airtel-fastlane-active", !!active);
+    } catch (e) {}
+  }
+
+  function showShellTryAgain(show) {
+    var btn = $("shell-try-again");
+    if (!btn) return;
+    btn.classList.toggle("hidden", !show);
+    btn.setAttribute("aria-hidden", show ? "false" : "true");
   }
 
   function hideRunHud() {
     runEnded = true;
+    showShellTryAgain(false);
     setFastLaneGlow(false);
     if (!runHud) return;
     resetRunHud();
@@ -128,8 +138,8 @@
         '</span><span class="name">' +
         escapeHtml(row.name) +
         '</span><span class="score">' +
-        row.total +
-        " coins</span>";
+        (row.priorityPoints != null ? row.priorityPoints : row.total) +
+        " pts</span>";
       list.appendChild(li);
     });
     var w = AirtelStorage.getDailyWinner();
@@ -146,7 +156,22 @@
 
   function updateReplays() {
     var el = $("replays-left");
-    if (el) el.style.display = "none";
+    if (!el) return;
+    var left = AirtelStorage.getReplaysLeft();
+    if (left <= 0) {
+      el.textContent = "No attempts left today";
+      el.hidden = false;
+    } else {
+      el.textContent =
+        left === 1 ? "1 attempt left today" : left + " attempts left today";
+      el.hidden = false;
+    }
+  }
+
+  function chancesLeftText(n) {
+    if (n <= 0) return "You have no more chances left.";
+    if (n === 1) return "You have 1 more chance left.";
+    return "You have " + n + " more chances left.";
   }
 
   function setGameFrameVisible(visible) {
@@ -156,6 +181,8 @@
 
   function beginPlayUi() {
     runEnded = false;
+    scoreSubmittedThisRun = false;
+    showShellTryAgain(false);
     sessionStarted = true;
     pendingSession = false;
     setFastLaneGlow(false);
@@ -171,12 +198,24 @@
   }
 
   function startSession() {
+    if (AirtelStorage.getReplaysLeft() <= 0) {
+      $("register-error").textContent =
+        "No plays left today. Try again tomorrow!";
+      return;
+    }
+    if (!AirtelStorage.usePlay()) {
+      $("register-error").textContent =
+        "No plays left today. Try again tomorrow!";
+      updateReplays();
+      return;
+    }
     pendingSession = true;
     $("register-error").textContent = "";
     $("btn-start-register").disabled = false;
+    updateReplays();
     AirtelStorage.saveUser({
       name: $("reg-name").value.trim(),
-      phone: $("reg-phone").value.trim(),
+      phone: $("reg-phone").value.trim().replace(/\s/g, ""),
       storeId: $("reg-store").value.trim(),
       character: defaultCharacterKey()
     });
@@ -186,6 +225,16 @@
     }
   }
 
+  function resolveRank(submitted, user) {
+    if (submitted && typeof submitted.rank === "number" && submitted.rank > 0) {
+      return submitted.rank;
+    }
+    if (user && user.phone) {
+      return AirtelStorage.getUserRank(user.phone) || 0;
+    }
+    return 0;
+  }
+
   function showGameOver(data) {
     if (!data) return;
     hideRunHud();
@@ -193,25 +242,39 @@
     sessionStarted = false;
     setGameFrameVisible(false);
     var user = AirtelStorage.getUser();
-    if (user) {
-      AirtelStorage.submitScore(
+    var rank = 0;
+    if (user && !scoreSubmittedThisRun) {
+      scoreSubmittedThisRun = true;
+      var submitted = AirtelStorage.submitScore(
         user,
         data.coins || 0,
         data.priorityPoints || 0,
         data.fastLaneCoins || 0
       );
+      rank = resolveRank(submitted, user);
+    } else if (user) {
+      rank = AirtelStorage.getUserRank(user.phone) || 0;
     }
     renderBoard();
+    updateReplays();
     $("go-title").textContent =
       data.reason === "complete" ? "Challenge Complete!" : "Game Over";
-    $("go-coins").textContent = (data.coins || 0) + (data.fastLaneCoins || 0);
-    $("go-priority").textContent = data.priorityPoints || 0;
-    $("go-letters").textContent = (data.lettersCollected || 0) + " / 8";
-    $("go-fastlane").textContent = data.fastLaneUnlocked
-      ? "Yes — Nitro unlocked!"
-      : "Not yet";
-    $("promo-nugget").textContent = PROMO[Math.floor(Math.random() * PROMO.length)];
-    $("replay-msg").textContent = "";
+    $("go-priority-score").textContent = data.priorityPoints || 0;
+    var left = AirtelStorage.getReplaysLeft();
+    $("go-rank-msg").textContent =
+      "You rank #" +
+      (rank > 0 ? rank : "—") +
+      " on the leaderboard. " +
+      chancesLeftText(left);
+    var allPriority =
+      (data.lettersCollected || 0) >= LETTERS.length || !!data.fastLaneUnlocked;
+    var unlockEl = $("go-unlock-msg");
+    if (unlockEl) {
+      unlockEl.classList.toggle("hidden", !allPriority);
+      unlockEl.setAttribute("aria-hidden", allPriority ? "false" : "true");
+    }
+    var playAgain = $("btn-play-again");
+    if (playAgain) playAgain.disabled = left <= 0;
     showPanel("panel-gameover");
   }
 
@@ -258,7 +321,13 @@
         } else {
           setFastLaneGlow(false);
           $("hud-phase").textContent = "Collect PRIORITY";
-          $("hud-timer").classList.add("hidden");
+          var sessionLeft = Math.ceil(e.data.sessionRemain || 0);
+          if (sessionLeft > 0) {
+            $("hud-timer").classList.remove("hidden");
+            $("hud-timer").textContent = sessionLeft + "s";
+          } else {
+            $("hud-timer").classList.add("hidden");
+          }
         }
         break;
       case "airtel:flash":
@@ -267,14 +336,64 @@
         }
         $("hud-phase").textContent = e.data.message || "Fast Lane Unlocked!";
         setTimeout(function () {
-          if (sessionStarted && !runEnded) $("hud-phase").textContent = "FAST LANE";
+          if (sessionStarted && !runEnded) {
+            $("hud-phase").textContent = "FAST LANE";
+            setFastLaneGlow(true);
+          }
         }, 2500);
         break;
+      case "airtel:mission-fail":
+        runEnded = false;
+        sessionStarted = true;
+        setGameFrameVisible(true);
+        showPanel(null);
+        showShellTryAgain(true);
+        if (runHud) {
+          runHud.classList.remove("hidden");
+          runHud.setAttribute("aria-hidden", "false");
+        }
+        refreshRunHud();
+        break;
+      case "airtel:request-retry":
+        retryCurrentRun();
+        break;
+      case "airtel:try-again":
+        runEnded = false;
+        sessionStarted = true;
+        showShellTryAgain(false);
+        refreshRunHud();
+        break;
       case "airtel:gameover":
+        runEnded = true;
         showGameOver(e.data);
         break;
     }
   });
+
+  function retryCurrentRun() {
+    showShellTryAgain(false);
+    runEnded = false;
+    sessionStarted = true;
+    setGameFrameVisible(true);
+    showPanel(null);
+    reloadGameFrame(function () {
+      beginPlayUi();
+      setTimeout(function () {
+        postToGame(sessionPayload());
+      }, 1200);
+      setTimeout(function () {
+        postToGame(sessionPayload());
+      }, 2800);
+      setTimeout(function () {
+        postToGame(sessionPayload());
+      }, 5000);
+    });
+  }
+
+  var shellTryAgain = $("shell-try-again");
+  if (shellTryAgain) {
+    shellTryAgain.addEventListener("click", retryCurrentRun);
+  }
 
   $("btn-start-register").addEventListener("click", function () {
     var name = $("reg-name").value.trim();
@@ -311,6 +430,11 @@
   }
 
   $("btn-play-again").addEventListener("click", function () {
+    if (AirtelStorage.getReplaysLeft() <= 0) return;
+    if (!AirtelStorage.usePlay()) {
+      updateReplays();
+      return;
+    }
     updateReplays();
     reloadGameFrame(function () {
       beginPlayUi();

@@ -22,4 +22,7 @@
   ];
 
   window.AIRTEL_CHARACTER = "OmNelle";
+
+  /** Mission 1 play time (seconds). Replaces the default 800m Reach Distance goal. */
+  window.AIRTEL_PLAY_SESSION_SEC = 180;
 })();
