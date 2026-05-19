@@ -22,7 +22,19 @@
   }
 
   function todayKey() {
-    return new Date().toISOString().slice(0, 10);
+    var d = new Date();
+    var tz =
+      (typeof global !== "undefined" &&
+        global.AIRTEL_DAY_TIMEZONE) ||
+      "Asia/Kolkata";
+    if (tz === "UTC") {
+      return d.toISOString().slice(0, 10);
+    }
+    try {
+      return d.toLocaleDateString("en-CA", { timeZone: tz });
+    } catch (e) {
+      return d.toISOString().slice(0, 10);
+    }
   }
 
   function normalizePhone(phone) {
@@ -252,7 +264,8 @@
         name: user.name,
         phone: normalizePhone(user.phone),
         storeId: user.storeId,
-        character: user.character || ""
+        character: user.character || "",
+        day: todayKey()
       })
     }).then(function (data) {
       if (data.playStatus) applyPlayStatus(data.playStatus);

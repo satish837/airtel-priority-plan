@@ -26,6 +26,9 @@
   /** Mission 1 play time (seconds). Replaces the default 800m Reach Distance goal. */
   window.AIRTEL_PLAY_SESSION_SEC = 180;
 
+  /** Calendar day for plays, scores, leaderboard (IST). Set "UTC" for UTC-only keys. */
+  window.AIRTEL_DAY_TIMEZONE = "Asia/Kolkata";
+
   /**
    * MongoDB API base URL.
    * - "" = localStorage only (no server)

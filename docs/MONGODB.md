@@ -46,6 +46,8 @@ location.reload();
 2. **Project Settings → Environment Variables**:
    - `MONGODB_URI` = your Atlas connection string
    - `MONGODB_DB_NAME` = `airtel_challenge` (optional)
+   - `AIRTEL_DAY_TIMEZONE` = `Asia/Kolkata` (optional; default matches India “today” for plays/scores)
+   - `ADMIN_KEY` = random string for `/api/dashboard`
 3. Redeploy. The app calls same-origin paths like `/api/leads/status` (do not set `AIRTEL_API_BASE` to `/api` on Vercel — that double-prefixes URLs).
 
 ## Collections

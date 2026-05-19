@@ -637,6 +637,13 @@ html.airtel-fastlane-active {
   font-weight: 600;
 }
 
+.leaderboard-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+  margin: -4px 0 10px;
+}
+
 .daily-winner {
   text-align: center;
   color: #ffeb3b;

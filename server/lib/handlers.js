@@ -4,8 +4,39 @@ const { getDb, ensureIndexes } = require("./db");
 
 const MAX_REPLAYS = 3;
 
+/** Calendar day for daily limits / scores (India default). Override with AIRTEL_DAY_TIMEZONE=UTC */
+function calendarDayInZone(d, zone) {
+  d = d || new Date();
+  zone = zone || process.env.AIRTEL_DAY_TIMEZONE || "Asia/Kolkata";
+  if (zone === "UTC") {
+    return d.toISOString().slice(0, 10);
+  }
+  try {
+    return d.toLocaleDateString("en-CA", { timeZone: zone });
+  } catch (e) {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
 function todayKey(d) {
-  return (d || new Date()).toISOString().slice(0, 10);
+  return calendarDayInZone(d, process.env.AIRTEL_DAY_TIMEZONE);
+}
+
+/** YYYY-MM-DD plus/minus one calendar day (UTC anchor) for cross-midnight / legacy UTC rows */
+function adjacentDayKeys(ymd) {
+  if (!ymd || typeof ymd !== "string") {
+    return [todayKey()];
+  }
+  var t = new Date(ymd + "T12:00:00.000Z").getTime();
+  if (isNaN(t)) {
+    return [todayKey()];
+  }
+  var DAY_MS = 86400000;
+  return [
+    new Date(t - DAY_MS).toISOString().slice(0, 10),
+    new Date(t).toISOString().slice(0, 10),
+    new Date(t + DAY_MS).toISOString().slice(0, 10)
+  ];
 }
 
 function normalizePhone(phone) {
@@ -89,7 +120,7 @@ async function upsertLead(body) {
   var db = await getDb();
   await ensureIndexes(db);
   var now = new Date();
-  var day = todayKey();
+  var day = body.day || todayKey(now);
   var doc = {
     name: String(body.name || "").trim(),
     storeId: String(body.storeId || "").trim(),
@@ -220,11 +251,12 @@ async function getLeaderboard(day) {
   day = day || todayKey();
   var db = await getDb();
   await ensureIndexes(db);
+  var keys = adjacentDayKeys(day);
   var rows = await db
     .collection("scores")
-    .find({ day: day })
+    .find({ day: { $in: keys } })
     .sort({ priorityPoints: -1, total: -1, coins: -1, ts: 1 })
-    .limit(500)
+    .limit(800)
     .toArray();
   return bestBoardPerPlayer(rows).slice(0, 50);
 }
@@ -247,9 +279,10 @@ async function getDashboardData(day) {
     .toArray();
 
   var playsToday = await db.collection("daily_plays").find({ day: day }).toArray();
+  var scoreDayKeys = adjacentDayKeys(day);
   var scoresToday = await db
     .collection("scores")
-    .find({ day: day })
+    .find({ day: { $in: scoreDayKeys } })
     .sort({ ts: -1 })
     .limit(5000)
     .toArray();
