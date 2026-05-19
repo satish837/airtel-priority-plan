@@ -11,6 +11,7 @@
   var pendingSession = false;
   var runEnded = false;
   var scoreSubmittedThisRun = false;
+  var countdownTimer = null;
   var gameFrameBase = frame
     ? frame.getAttribute("src").split("#")[0].split("?")[0] +
       "?origin=https%3A%2F%2Fgamesnacks.com&gameCenterId=gamesnacks"
@@ -41,7 +42,16 @@
     $("hud-coins").textContent = "0";
   }
 
+  function setFastLaneBanner(active, message) {
+    var banner = $("fastlane-banner");
+    if (!banner) return;
+    if (message) banner.textContent = message;
+    banner.classList.toggle("hidden", !active);
+    banner.setAttribute("aria-hidden", active ? "false" : "true");
+  }
+
   function setFastLaneGlow(active) {
+    setFastLaneBanner(active, "Fast Lane Unlocked!");
     var shell = document.getElementById("shell");
     if (fastlaneGlow) {
       if (active) {
@@ -71,7 +81,9 @@
 
   function hideRunHud() {
     runEnded = true;
+    hideRunCountdown();
     showShellTryAgain(false);
+    setFastLaneBanner(false);
     setFastLaneGlow(false);
     if (!runHud) return;
     resetRunHud();
@@ -179,6 +191,51 @@
     frame.classList.toggle("game-over-hidden", !visible);
   }
 
+  function hideRunCountdown() {
+    var overlay = $("run-countdown");
+    if (overlay) {
+      overlay.classList.add("hidden");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+    if (countdownTimer) {
+      clearTimeout(countdownTimer);
+      countdownTimer = null;
+    }
+  }
+
+  function runStartCountdown(done) {
+    var overlay = $("run-countdown");
+    var numEl = $("run-countdown-num");
+    if (!overlay || !numEl) {
+      if (done) done();
+      return;
+    }
+    hideRunCountdown();
+    showPanel(null);
+    setGameFrameVisible(true);
+    showShellTryAgain(false);
+    var steps = [3, 2, 1];
+    var step = 0;
+    overlay.classList.remove("hidden");
+    overlay.setAttribute("aria-hidden", "false");
+
+    function tick() {
+      if (step >= steps.length) {
+        hideRunCountdown();
+        if (done) done();
+        return;
+      }
+      numEl.textContent = String(steps[step]);
+      numEl.classList.remove("countdown-bump");
+      void numEl.offsetWidth;
+      numEl.classList.add("countdown-bump");
+      step += 1;
+      countdownTimer = setTimeout(tick, 1000);
+    }
+
+    tick();
+  }
+
   function beginPlayUi() {
     runEnded = false;
     scoreSubmittedThisRun = false;
@@ -219,10 +276,14 @@
       storeId: $("reg-store").value.trim(),
       character: defaultCharacterKey()
     });
-    beginPlayUi();
-    if (!gameLoaded) {
-      $("register-error").textContent = "Game loading…";
-    }
+    $("btn-start-register").disabled = true;
+    runStartCountdown(function () {
+      $("btn-start-register").disabled = false;
+      beginPlayUi();
+      if (!gameLoaded) {
+        $("register-error").textContent = "Game loading…";
+      }
+    });
   }
 
   function resolveRank(submitted, user) {
@@ -315,11 +376,12 @@
         $("hud-coins").textContent = String(e.data.coins || 0);
         if (e.data.phase === "fastlane") {
           setFastLaneGlow(true);
-          $("hud-phase").textContent = "FAST LANE";
+          setFastLaneBanner(true, "Fast Lane Unlocked!");
           $("hud-timer").classList.remove("hidden");
           $("hud-timer").textContent = Math.ceil(e.data.fastLaneRemain || 0) + "s";
         } else {
           setFastLaneGlow(false);
+          setFastLaneBanner(false);
           $("hud-phase").textContent = "Collect PRIORITY";
           var sessionLeft = Math.ceil(e.data.sessionRemain || 0);
           if (sessionLeft > 0) {
@@ -333,14 +395,8 @@
       case "airtel:flash":
         if ((e.data.message || "").indexOf("Fast Lane") >= 0) {
           setFastLaneGlow(true);
+          setFastLaneBanner(true, e.data.message || "Fast Lane Unlocked!");
         }
-        $("hud-phase").textContent = e.data.message || "Fast Lane Unlocked!";
-        setTimeout(function () {
-          if (sessionStarted && !runEnded) {
-            $("hud-phase").textContent = "FAST LANE";
-            setFastLaneGlow(true);
-          }
-        }, 2500);
         break;
       case "airtel:mission-fail":
         runEnded = false;
@@ -373,20 +429,19 @@
   function retryCurrentRun() {
     showShellTryAgain(false);
     runEnded = false;
-    sessionStarted = true;
-    setGameFrameVisible(true);
-    showPanel(null);
     reloadGameFrame(function () {
-      beginPlayUi();
-      setTimeout(function () {
-        postToGame(sessionPayload());
-      }, 1200);
-      setTimeout(function () {
-        postToGame(sessionPayload());
-      }, 2800);
-      setTimeout(function () {
-        postToGame(sessionPayload());
-      }, 5000);
+      runStartCountdown(function () {
+        beginPlayUi();
+        setTimeout(function () {
+          postToGame(sessionPayload());
+        }, 1200);
+        setTimeout(function () {
+          postToGame(sessionPayload());
+        }, 2800);
+        setTimeout(function () {
+          postToGame(sessionPayload());
+        }, 5000);
+      });
     });
   }
 
@@ -437,17 +492,18 @@
     }
     updateReplays();
     reloadGameFrame(function () {
-      beginPlayUi();
-      /* Extra start-session posts after iframe boot (Play Again) */
-      setTimeout(function () {
-        postToGame(sessionPayload());
-      }, 1200);
-      setTimeout(function () {
-        postToGame(sessionPayload());
-      }, 2800);
-      setTimeout(function () {
-        postToGame(sessionPayload());
-      }, 5000);
+      runStartCountdown(function () {
+        beginPlayUi();
+        setTimeout(function () {
+          postToGame(sessionPayload());
+        }, 1200);
+        setTimeout(function () {
+          postToGame(sessionPayload());
+        }, 2800);
+        setTimeout(function () {
+          postToGame(sessionPayload());
+        }, 5000);
+      });
     });
   });
 

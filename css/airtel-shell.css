@@ -47,9 +47,10 @@ body {
 }
 
 #shell.fastlane-active #game-frame {
-  filter: saturate(1.25) brightness(1.06) sepia(0.12) hue-rotate(-6deg);
+  filter: saturate(1.12) brightness(1.03);
 }
 
+/* Edge vignette only — center stays clear so the runner stays visible */
 .fastlane-glow {
   position: absolute;
   inset: 0;
@@ -74,38 +75,120 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(145deg, rgba(255, 120, 0, 0.55) 0%, rgba(230, 46, 0, 0.65) 100%);
-  mix-blend-mode: screen;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 120, 0, 0.5) 0%,
+      transparent 22%,
+      transparent 78%,
+      rgba(230, 46, 0, 0.45) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(255, 100, 0, 0.42) 0%,
+      transparent 18%,
+      transparent 82%,
+      rgba(255, 100, 0, 0.42) 100%
+    );
+  -webkit-mask-image: radial-gradient(
+    ellipse 58% 48% at 50% 58%,
+    transparent 0%,
+    transparent 42%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 58% 48% at 50% 58%,
+    transparent 0%,
+    transparent 42%,
+    #000 100%
+  );
 }
 
 .fastlane-glow::after {
   content: "";
   position: absolute;
-  inset: -8%;
+  inset: 0;
   background:
-    radial-gradient(ellipse 95% 75% at 0% 100%, rgba(255, 100, 0, 0.85) 0%, transparent 52%),
-    radial-gradient(ellipse 90% 70% at 100% 0%, rgba(255, 160, 0, 0.75) 0%, transparent 50%),
-    radial-gradient(ellipse 110% 90% at 50% 50%, rgba(255, 180, 60, 0.2) 0%, rgba(230, 46, 0, 0.55) 100%);
-  box-shadow:
-    inset 0 0 90px 36px rgba(255, 120, 0, 0.5),
-    inset 0 0 140px 56px rgba(230, 46, 0, 0.35);
+    radial-gradient(ellipse 90% 55% at 50% 100%, rgba(255, 100, 0, 0.55) 0%, transparent 58%),
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(255, 160, 0, 0.35) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 70% at 0% 50%, rgba(230, 46, 0, 0.4) 0%, transparent 58%),
+    radial-gradient(ellipse 40% 70% at 100% 50%, rgba(230, 46, 0, 0.4) 0%, transparent 58%);
+  -webkit-mask-image: radial-gradient(
+    ellipse 55% 45% at 50% 55%,
+    transparent 0%,
+    transparent 40%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 55% 45% at 50% 55%,
+    transparent 0%,
+    transparent 40%,
+    #000 100%
+  );
   animation: fastlane-glow-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes fastlane-glow-pulse {
   0%,
   100% {
-    opacity: 0.88;
-    filter: brightness(1);
+    opacity: 0.9;
   }
   50% {
     opacity: 1;
-    filter: brightness(1.12);
   }
 }
 
 html.airtel-fastlane-active {
   background: #2a1200;
+}
+
+.fastlane-banner {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  width: fit-content;
+  max-width: min(92vw, 360px);
+  margin: 4px auto 2px;
+  padding: 12px 22px;
+  border-radius: 14px;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: clamp(1.1rem, 4vw, 1.65rem);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(135deg, #e62e00 0%, #ff8c00 100%);
+  border: 3px solid #ffeb3b;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  animation: fastlane-banner-pop 0.45s ease-out, fastlane-banner-pulse 1.4s ease-in-out 0.45s infinite;
+}
+
+.fastlane-banner.hidden {
+  display: none;
+}
+
+@keyframes fastlane-banner-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fastlane-banner-pulse {
+  0%,
+  100% {
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  }
+  50% {
+    box-shadow: 0 10px 36px rgba(255, 140, 0, 0.65);
+  }
 }
 
 .airtel-splash {
@@ -310,6 +393,50 @@ html.airtel-fastlane-active {
   display: none;
 }
 
+.run-countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(230, 44, 0, 1);
+  pointer-events: all;
+}
+
+.run-countdown.hidden {
+  display: none;
+}
+
+#run-countdown-num {
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: clamp(4.5rem, 22vw, 8rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    0 0 40px rgba(255, 140, 0, 0.9),
+    0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+#run-countdown-num.countdown-bump {
+  animation: countdown-bump 0.45s ease-out;
+}
+
+@keyframes countdown-bump {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .run-hud {
   position: absolute;
   top: 0;
@@ -318,13 +445,21 @@ html.airtel-fastlane-active {
   z-index: 15;
   pointer-events: none;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 8px;
+  gap: 6px;
+  padding: 10px 8px 8px;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent);
   pointer-events: none;
+}
+
+.run-hud-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .run-hud.hidden {
@@ -351,27 +486,32 @@ html.airtel-fastlane-active {
 
 .letter-track {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
   justify-content: center;
+  padding: 4px 0 2px;
 }
 
 .letter-slot {
-  width: 26px;
-  height: 30px;
+  width: 38px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 0.8rem;
-  border-radius: 6px;
+  font-weight: 800;
+  font-size: 1.25rem;
+  line-height: 1;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
   background: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .letter-slot.done {
   background: #fff;
+  border-color: #ffeb3b;
   color: #e60000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .go-summary {

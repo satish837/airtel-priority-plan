@@ -2,7 +2,6 @@
   "use strict";
 
   var LETTERS = ["P", "R", "I", "O", "R", "I", "T", "Y"];
-  var UNLIMITED_PLAYS = false;
   var MAX_REPLAYS = 3;
 
   function todayKey() {
@@ -37,12 +36,10 @@
   }
 
   function getReplaysLeft() {
-    if (UNLIMITED_PLAYS) return 9999;
     return Math.max(0, MAX_REPLAYS - getPlaysUsed());
   }
 
   function usePlay() {
-    if (UNLIMITED_PLAYS) return true;
     var data = read("airtel_plays", {});
     var day = todayKey();
     if (data.day !== day) data = { day: day, used: 0 };
@@ -54,6 +51,10 @@
 
   function useReplay() {
     return usePlay();
+  }
+
+  function resetDailyPlays() {
+    write("airtel_plays", { day: todayKey(), used: 0 });
   }
 
   function getBoard() {
@@ -123,8 +124,10 @@
     getUser: getUser,
     saveUser: saveUser,
     getReplaysLeft: getReplaysLeft,
+    getPlaysUsed: getPlaysUsed,
     usePlay: usePlay,
     useReplay: useReplay,
+    resetDailyPlays: resetDailyPlays,
     getBoard: getBoard,
     submitScore: submitScore,
     getUserRank: getUserRank,

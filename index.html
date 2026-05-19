@@ -60,12 +60,21 @@
 
     <div id="fastlane-glow" class="fastlane-glow hidden" aria-hidden="true"></div>
 
+    <div id="run-countdown" class="run-countdown hidden" aria-hidden="true">
+      <span id="run-countdown-num">3</span>
+    </div>
+
     <!-- In-run HUD (over iframe) -->
     <div id="run-hud" class="run-hud hidden" aria-hidden="true">
       <div id="letter-track" class="letter-track"></div>
-      <span id="hud-phase">Collect PRIORITY</span>
-      <span id="hud-coins">0</span>
-      <span id="hud-timer" class="hidden">60s</span>
+      <div id="fastlane-banner" class="fastlane-banner hidden" aria-hidden="true">
+        Fast Lane Unlocked!
+      </div>
+      <div class="run-hud-stats">
+        <span id="hud-phase">Collect PRIORITY</span>
+        <span id="hud-coins">0</span>
+        <span id="hud-timer" class="hidden">60s</span>
+      </div>
     </div>
 
     <button
@@ -115,7 +124,7 @@
   </div>
 
   <script src="game/airtel-config.js"></script>
-  <script src="js/storage.js?v=3"></script>
-  <script src="js/airtel-shell.js?v=4"></script>
+  <script src="js/storage.js?v=7"></script>
+  <script src="js/airtel-shell.js?v=8"></script>
 </body>
 </html>
