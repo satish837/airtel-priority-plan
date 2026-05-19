@@ -25,4 +25,19 @@
 
   /** Mission 1 play time (seconds). Replaces the default 800m Reach Distance goal. */
   window.AIRTEL_PLAY_SESSION_SEC = 180;
+
+  /**
+   * MongoDB API base URL.
+   * - "" = localStorage only (no server)
+   * - "http://localhost:3001" = local API (npm run api)
+   * - "/api" = Vercel serverless (set MONGODB_URI in project env)
+   */
+  if (typeof window.AIRTEL_API_BASE === "undefined") {
+    var host = window.location && window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      window.AIRTEL_API_BASE = "http://localhost:3001";
+    } else {
+      window.AIRTEL_API_BASE = "/api";
+    }
+  }
 })();

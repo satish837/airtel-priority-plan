@@ -217,7 +217,10 @@
   }
 
   function priorityPoints() {
-    return collectedCount() * 10 + (state.didFastLane || state.fastLane ? 50 : 0);
+    var letterPts = collectedCount() * 10;
+    var fastLaneBonus = state.didFastLane || state.fastLane ? 50 : 0;
+    var coinPts = (state.coins || 0) + (state.fastLaneCoins || 0);
+    return letterPts + fastLaneBonus + coinPts;
   }
 
   function nextNeeded() {

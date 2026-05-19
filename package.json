@@ -1,0 +1,12 @@
+{
+  "name": "airtel-priority-plan",
+  "private": true,
+  "description": "Airtel Fast Lane Challenge — static game + MongoDB API",
+  "scripts": {
+    "api": "npm --prefix server start",
+    "api:install": "npm --prefix server install"
+  },
+  "dependencies": {
+    "mongodb": "^6.12.0"
+  }
+}

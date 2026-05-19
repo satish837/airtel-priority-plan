@@ -134,9 +134,8 @@
     });
   }
 
-  function renderBoard() {
+  function renderBoardWithRows(board) {
     var list = $("leaderboard-list");
-    var board = AirtelStorage.getBoard();
     list.innerHTML = "";
     if (!board.length) {
       list.innerHTML = "<li>No scores yet today. Be the first!</li>";
@@ -154,10 +153,14 @@
         " pts</span>";
       list.appendChild(li);
     });
-    var w = AirtelStorage.getDailyWinner();
+    var w = board.length ? board[0] : null;
     $("daily-winner").textContent = w
       ? "Today's winner: " + w.name
       : "Today's winner: xx";
+  }
+
+  function renderBoard() {
+    AirtelStorage.getBoardAsync().then(renderBoardWithRows);
   }
 
   function escapeHtml(s) {
@@ -166,18 +169,60 @@
     return d.innerHTML;
   }
 
-  function updateReplays() {
+  function setStartButtonEnabled(enabled) {
+    var btn = $("btn-start-register");
+    if (btn) btn.disabled = !enabled;
+  }
+
+  function updateReplays(phone) {
     var el = $("replays-left");
-    if (!el) return;
-    var left = AirtelStorage.getReplaysLeft();
-    if (left <= 0) {
-      el.textContent = "No attempts left today";
-      el.hidden = false;
-    } else {
-      el.textContent =
-        left === 1 ? "1 attempt left today" : left + " attempts left today";
-      el.hidden = false;
+    var check = phone
+      ? AirtelStorage.checkPlayEligibility(phone.replace(/\s/g, ""))
+      : AirtelStorage.getReplaysLeftAsync().then(function (left) {
+          return { left: left, canPlayToday: left > 0 };
+        });
+    check.then(function (status) {
+      var left = status.left != null ? status.left : 0;
+      if (el) {
+        if (left <= 0 || status.canPlayToday === false) {
+          el.textContent = "No attempts left today";
+        } else {
+          el.textContent =
+            left === 1 ? "1 attempt left today" : left + " attempts left today";
+        }
+        el.hidden = false;
+      }
+      setStartButtonEnabled(status.canPlayToday !== false && left > 0);
+    });
+  }
+
+  function checkPhonePlayLimit() {
+    var phone = ($("reg-phone") && $("reg-phone").value.trim()) || "";
+    phone = phone.replace(/\s/g, "");
+    if (!/^\d{10}$/.test(phone)) {
+      $("register-error").textContent = "";
+      setStartButtonEnabled(true);
+      return;
     }
+    if (!AirtelStorage.useApi()) {
+      updateReplays();
+      return;
+    }
+    AirtelStorage.checkPlayEligibility(phone)
+      .then(function (status) {
+        updateReplays(phone);
+        if (!status.canPlayToday) {
+          $("register-error").textContent =
+            "This number has used all 3 plays today. Try again tomorrow.";
+        } else if (!$("register-error").textContent) {
+          $("register-error").textContent = "";
+        }
+      })
+      .catch(function () {
+        $("register-error").textContent =
+          "Could not verify play limit. Is the API running?";
+        setStartButtonEnabled(false);
+      });
   }
 
   function chancesLeftText(n) {
@@ -255,35 +300,51 @@
   }
 
   function startSession() {
-    if (AirtelStorage.getReplaysLeft() <= 0) {
-      $("register-error").textContent =
-        "No plays left today. Try again tomorrow!";
-      return;
-    }
-    if (!AirtelStorage.usePlay()) {
-      $("register-error").textContent =
-        "No plays left today. Try again tomorrow!";
-      updateReplays();
-      return;
-    }
-    pendingSession = true;
-    $("register-error").textContent = "";
-    $("btn-start-register").disabled = false;
-    updateReplays();
-    AirtelStorage.saveUser({
+    var user = {
       name: $("reg-name").value.trim(),
       phone: $("reg-phone").value.trim().replace(/\s/g, ""),
       storeId: $("reg-store").value.trim(),
       character: defaultCharacterKey()
-    });
+    };
     $("btn-start-register").disabled = true;
-    runStartCountdown(function () {
-      $("btn-start-register").disabled = false;
-      beginPlayUi();
-      if (!gameLoaded) {
-        $("register-error").textContent = "Game loading…";
-      }
-    });
+    $("register-error").textContent = "";
+
+    AirtelStorage.checkPlayEligibility(user.phone)
+      .then(function (status) {
+        if (!status.canPlayToday || status.left <= 0) {
+          throw new Error("NO_PLAYS");
+        }
+        return AirtelStorage.saveUser(user);
+      })
+      .then(function () {
+        return AirtelStorage.usePlay();
+      })
+      .then(function (ok) {
+        if (!ok) throw new Error("NO_PLAYS");
+        pendingSession = true;
+        updateReplays();
+        runStartCountdown(function () {
+          $("btn-start-register").disabled = false;
+          beginPlayUi();
+          if (!gameLoaded) {
+            $("register-error").textContent = "Game loading…";
+          }
+        });
+      })
+      .catch(function (err) {
+        $("btn-start-register").disabled = false;
+        if (err && err.message === "NO_PLAYS") {
+          $("register-error").textContent =
+            "No plays left today. Try again tomorrow!";
+        } else if (AirtelStorage.useApi()) {
+          $("register-error").textContent =
+            "Could not connect to server. Check API and try again.";
+        } else {
+          $("register-error").textContent =
+            "No plays left today. Try again tomorrow!";
+        }
+        updateReplays();
+      });
   }
 
   function resolveRank(submitted, user) {
@@ -303,40 +364,68 @@
     sessionStarted = false;
     setGameFrameVisible(false);
     var user = AirtelStorage.getUser();
-    var rank = 0;
+    var rankPromise;
     if (user && !scoreSubmittedThisRun) {
       scoreSubmittedThisRun = true;
-      var submitted = AirtelStorage.submitScore(
+      rankPromise = AirtelStorage.submitScore(
         user,
         data.coins || 0,
         data.priorityPoints || 0,
-        data.fastLaneCoins || 0
-      );
-      rank = resolveRank(submitted, user);
+        data.fastLaneCoins || 0,
+        {
+          lettersCollected: data.lettersCollected,
+          fastLaneUnlocked: data.fastLaneUnlocked,
+          reason: data.reason
+        }
+      ).then(function (submitted) {
+        return resolveRank(submitted, user);
+      });
     } else if (user) {
-      rank = AirtelStorage.getUserRank(user.phone) || 0;
+      rankPromise = AirtelStorage.getUserRankAsync(user.phone).then(function (r) {
+        return r || 0;
+      });
+    } else {
+      rankPromise = Promise.resolve(0);
     }
-    renderBoard();
-    updateReplays();
-    $("go-title").textContent =
-      data.reason === "complete" ? "Challenge Complete!" : "Game Over";
-    $("go-priority-score").textContent = data.priorityPoints || 0;
-    var left = AirtelStorage.getReplaysLeft();
-    $("go-rank-msg").textContent =
-      "You rank #" +
-      (rank > 0 ? rank : "—") +
-      " on the leaderboard. " +
-      chancesLeftText(left);
-    var allPriority =
-      (data.lettersCollected || 0) >= LETTERS.length || !!data.fastLaneUnlocked;
-    var unlockEl = $("go-unlock-msg");
-    if (unlockEl) {
-      unlockEl.classList.toggle("hidden", !allPriority);
-      unlockEl.setAttribute("aria-hidden", allPriority ? "false" : "true");
-    }
-    var playAgain = $("btn-play-again");
-    if (playAgain) playAgain.disabled = left <= 0;
-    showPanel("panel-gameover");
+
+    Promise.all([rankPromise, AirtelStorage.getReplaysLeftAsync()])
+      .then(function (results) {
+        var rank = results[0];
+        var left = results[1];
+        renderBoard();
+        updateReplays();
+        $("go-title").textContent =
+          data.reason === "complete" ? "Challenge Complete!" : "Game Over";
+        $("go-priority-score").textContent = data.priorityPoints || 0;
+        var totalCoins = (data.coins || 0) + (data.fastLaneCoins || 0);
+        var coinsDetail = $("go-coins-detail");
+        if (coinsDetail) {
+          if (totalCoins > 0) {
+            coinsDetail.textContent =
+              "Includes " + totalCoins + " coins collected";
+            coinsDetail.hidden = false;
+          } else {
+            coinsDetail.textContent = "";
+            coinsDetail.hidden = true;
+          }
+        }
+        $("go-rank-msg").textContent =
+          "You rank #" +
+          (rank > 0 ? rank : "—") +
+          " on the leaderboard. " +
+          chancesLeftText(left);
+        var allPriority =
+          (data.lettersCollected || 0) >= LETTERS.length ||
+          !!data.fastLaneUnlocked;
+        var unlockEl = $("go-unlock-msg");
+        if (unlockEl) {
+          unlockEl.classList.toggle("hidden", !allPriority);
+          unlockEl.setAttribute("aria-hidden", allPriority ? "false" : "true");
+        }
+        var playAgain = $("btn-play-again");
+        if (playAgain) playAgain.disabled = left <= 0;
+        showPanel("panel-gameover");
+      });
   }
 
   window.addEventListener("message", function (e) {
@@ -447,9 +536,17 @@
       $("register-error").textContent = "Enter a valid 10-digit phone number.";
       return;
     }
-    updateReplays();
     startSession();
   });
+
+  var regPhone = $("reg-phone");
+  if (regPhone) {
+    regPhone.addEventListener("blur", checkPhonePlayLimit);
+    regPhone.addEventListener("input", function () {
+      var p = regPhone.value.replace(/\s/g, "");
+      if (p.length === 10) checkPhonePlayLimit();
+    });
+  }
 
   function reloadGameFrame(done) {
     if (!frame) {
@@ -470,24 +567,34 @@
   }
 
   $("btn-play-again").addEventListener("click", function () {
-    if (AirtelStorage.getReplaysLeft() <= 0) return;
-    if (!AirtelStorage.usePlay()) {
-      updateReplays();
-      return;
-    }
-    updateReplays();
-    reloadGameFrame(function () {
-      runStartCountdown(function () {
-        beginPlayUi();
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 1200);
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 2800);
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 5000);
+    var user = AirtelStorage.getUser();
+    var check = user && user.phone
+      ? AirtelStorage.checkPlayEligibility(user.phone)
+      : AirtelStorage.getReplaysLeftAsync().then(function (left) {
+          return { left: left, canPlayToday: left > 0 };
+        });
+    check.then(function (status) {
+      if (!status.canPlayToday || status.left <= 0) return;
+      return AirtelStorage.usePlay().then(function (ok) {
+        if (!ok) {
+          updateReplays();
+          return;
+        }
+        updateReplays();
+        reloadGameFrame(function () {
+          runStartCountdown(function () {
+            beginPlayUi();
+            setTimeout(function () {
+              postToGame(sessionPayload());
+            }, 1200);
+            setTimeout(function () {
+              postToGame(sessionPayload());
+            }, 2800);
+            setTimeout(function () {
+              postToGame(sessionPayload());
+            }, 5000);
+          });
+        });
       });
     });
   });
@@ -514,8 +621,14 @@
     $("reg-phone").value = user.phone;
     $("reg-store").value = user.storeId;
   }
-  updateReplays();
-  showPanel("panel-register");
+  AirtelStorage.init().then(function () {
+    if (user && user.phone) {
+      checkPhonePlayLimit();
+    } else {
+      updateReplays();
+    }
+    showPanel("panel-register");
+  });
 
   /* Fallback if iframe never posts airtel:loaded */
   setTimeout(function () {

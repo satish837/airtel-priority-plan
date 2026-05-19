@@ -530,6 +530,12 @@ html.airtel-fastlane-active {
   font-weight: 700;
 }
 
+.go-coins-detail {
+  font-size: 0.88rem;
+  margin: -8px 0 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .go-rank-msg {
   font-size: 0.92rem;
   margin: 0 0 16px;

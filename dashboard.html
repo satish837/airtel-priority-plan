@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Airtel Challenge — Admin Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <section id="auth-panel" class="auth-panel">
+    <h2>Admin sign in</h2>
+    <p>Enter your dashboard key (<code>ADMIN_KEY</code> from server <code>.env</code>). Leave blank if none is set.</p>
+    <input id="admin-key" type="password" placeholder="Admin key" autocomplete="current-password">
+    <p id="auth-error" class="error"></p>
+    <button type="button" class="btn btn-primary" id="btn-auth" style="width:100%">View dashboard</button>
+  </section>
+
+  <div id="dashboard-main" class="dashboard-wrap hidden">
+    <header class="dashboard-header">
+      <div>
+        <h1>Player dashboard</h1>
+        <p>Fast Lane Challenge · data for <span id="day-label">today</span></p>
+      </div>
+      <div class="dashboard-actions">
+        <input type="date" id="filter-day" aria-label="Filter by date">
+        <input type="search" id="search" placeholder="Search name, phone, store…" aria-label="Search">
+        <button type="button" class="btn btn-ghost" id="btn-export">Export CSV</button>
+        <button type="button" class="btn btn-primary" id="btn-refresh">Refresh</button>
+        <button type="button" class="btn btn-ghost" id="btn-logout">Sign out</button>
+      </div>
+    </header>
+
+    <p id="status-bar" class="status-bar hidden" role="status"></p>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Registered players</div>
+        <div class="value" id="stat-registered">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Runs today</div>
+        <div class="value" id="stat-runs">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Active players today</div>
+        <div class="value" id="stat-active">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Top priority score</div>
+        <div class="value" id="stat-top">0</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button type="button" class="tab active" data-panel="panel-players">Players</button>
+      <button type="button" class="tab" data-panel="panel-runs">Recent runs</button>
+    </div>
+
+    <section id="panel-players" class="panel-section active">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Store</th>
+              <th>Character</th>
+              <th>Plays</th>
+              <th>Runs</th>
+              <th>Best priority</th>
+              <th>Best coins</th>
+              <th>Fast lane</th>
+              <th>Last run</th>
+            </tr>
+          </thead>
+          <tbody id="players-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="panel-runs" class="panel-section">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Store</th>
+              <th>Priority</th>
+              <th>Coins</th>
+              <th>Fast lane coins</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="runs-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script src="js/dashboard.js?v=1"></script>
+</body>
+</html>
