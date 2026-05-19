@@ -11,7 +11,22 @@
     if (host === "localhost" || host === "127.0.0.1") {
       return "http://localhost:3001";
     }
-    return "/api";
+    return "";
+  }
+
+  function parseJsonResponse(res) {
+    var ct = (res.headers.get("content-type") || "").toLowerCase();
+    if (ct.indexOf("application/json") >= 0) {
+      return res.json();
+    }
+    return res.text().then(function (text) {
+      if (res.status === 404) {
+        throw new Error("API not found. Redeploy with /api routes and set MONGODB_URI on Vercel.");
+      }
+      throw new Error(
+        text && text.length < 120 ? text : "Server returned non-JSON (HTTP " + res.status + ")"
+      );
+    });
   }
 
   function todayKey() {
@@ -62,7 +77,7 @@
     return fetch(url, {
       headers: key ? { "x-admin-key": key } : {}
     }).then(function (res) {
-      return res.json().then(function (data) {
+      return parseJsonResponse(res).then(function (data) {
         if (!res.ok || !data.ok) {
           throw new Error((data && data.error) || res.statusText || "Failed to load");
         }

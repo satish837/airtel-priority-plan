@@ -46,7 +46,7 @@ location.reload();
 2. **Project Settings → Environment Variables**:
    - `MONGODB_URI` = your Atlas connection string
    - `MONGODB_DB_NAME` = `airtel_challenge` (optional)
-3. Redeploy. The app uses `/api/*` serverless routes on the same domain.
+3. Redeploy. The app calls same-origin paths like `/api/leads/status` (do not set `AIRTEL_API_BASE` to `/api` on Vercel — that double-prefixes URLs).
 
 ## Collections
 

@@ -46,7 +46,20 @@
     var opts = options || {};
     opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
     return fetch(url, opts).then(function (res) {
-      return res.json().then(function (data) {
+      var ct = (res.headers.get("content-type") || "").toLowerCase();
+      var body =
+        ct.indexOf("application/json") >= 0
+          ? res.json()
+          : res.text().then(function (text) {
+              throw new Error(
+                res.status === 404
+                  ? "API route not found. Check Vercel /api deployment."
+                  : text && text.length < 100
+                    ? text
+                    : "Server error (HTTP " + res.status + ")"
+              );
+            });
+      return body.then(function (data) {
         if (!res.ok || (data && data.ok === false)) {
           var msg = (data && data.error) || res.statusText || "Request failed";
           throw new Error(msg);
