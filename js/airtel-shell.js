@@ -227,7 +227,9 @@
     check.then(function (status) {
       var left = status.left != null ? status.left : 0;
       if (el) {
-        if (left <= 0 || status.canPlayToday === false) {
+        if (status.whitelistBlocked || status.whitelisted === false) {
+          el.textContent = "Number not on eligible list";
+        } else if (left <= 0 || status.canPlayToday === false) {
           el.textContent = "No attempts left today";
         } else {
           el.textContent =
@@ -235,15 +237,42 @@
         }
         el.hidden = false;
       }
-      setStartButtonEnabled(status.canPlayToday !== false && left > 0);
+      var canStart =
+        status.whitelistBlocked !== true &&
+        status.whitelisted !== false &&
+        status.canPlayToday !== false &&
+        left > 0;
+      setStartButtonEnabled(canStart);
     });
+  }
+
+  function applyWhitelistStoreFields(status) {
+    var storeEl = $("reg-store");
+    if (!storeEl) return;
+    if (status && status.storeId) {
+      storeEl.value = status.storeId;
+      storeEl.readOnly = true;
+    } else {
+      storeEl.readOnly = false;
+    }
+    var nameEl = $("reg-name");
+    if (
+      nameEl &&
+      status &&
+      status.whitelistName &&
+      !nameEl.value.trim()
+    ) {
+      nameEl.value = status.whitelistName;
+    }
   }
 
   function checkPhonePlayLimit() {
     var phone = ($("reg-phone") && $("reg-phone").value.trim()) || "";
     phone = phone.replace(/\s/g, "");
+    var storeEl = $("reg-store");
     if (!/^\d{10}$/.test(phone)) {
       $("register-error").textContent = "";
+      if (storeEl) storeEl.readOnly = false;
       setStartButtonEnabled(true);
       return;
     }
@@ -253,8 +282,12 @@
     }
     AirtelStorage.checkPlayEligibility(phone)
       .then(function (status) {
+        applyWhitelistStoreFields(status);
         updateReplays(phone);
-        if (!status.canPlayToday) {
+        if (status.whitelistBlocked || status.whitelisted === false) {
+          $("register-error").textContent =
+            "This mobile number is not eligible to play.";
+        } else if (!status.canPlayToday) {
           $("register-error").textContent =
             "This number has used all " +
             AirtelStorage.MAX_REPLAYS +
@@ -354,8 +387,18 @@
     $("btn-start-register").disabled = true;
     $("register-error").textContent = "";
 
+    if (!AirtelStorage.useApi()) {
+      $("btn-start-register").disabled = false;
+      $("register-error").textContent =
+        "Could not connect to game server to verify your number.";
+      return;
+    }
+
     AirtelStorage.checkPlayEligibility(user.phone)
       .then(function (status) {
+        if (status.whitelistBlocked || status.whitelisted === false) {
+          throw new Error("NOT_WHITELISTED");
+        }
         if (!status.canPlayToday || status.left <= 0) {
           throw new Error("NO_PLAYS");
         }
@@ -378,7 +421,10 @@
       })
       .catch(function (err) {
         $("btn-start-register").disabled = false;
-        if (err && err.message === "NO_PLAYS") {
+        if (err && err.message === "NOT_WHITELISTED") {
+          $("register-error").textContent =
+            "This mobile number is not eligible to play.";
+        } else if (err && err.message === "NO_PLAYS") {
           $("register-error").textContent =
             "No plays left today. Try again tomorrow!";
         } else if (AirtelStorage.useApi()) {
@@ -625,6 +671,7 @@
           return { left: left, canPlayToday: left > 0 };
         });
     check.then(function (status) {
+      if (status.whitelistBlocked || status.whitelisted === false) return;
       if (!status.canPlayToday || status.left <= 0) return;
       return AirtelStorage.usePlay().then(function (ok) {
         if (!ok) {

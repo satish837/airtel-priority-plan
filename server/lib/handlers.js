@@ -1,8 +1,9 @@
 "use strict";
 
 const { getDb, ensureIndexes } = require("./db");
+const whitelist = require("./whitelist");
 
-const MAX_REPLAYS = 99;
+const MAX_REPLAYS = 3;
 
 /** Calendar day for daily limits / scores (India default). Override with AIRTEL_DAY_TIMEZONE=UTC */
 function calendarDayInZone(d, zone) {
@@ -40,7 +41,7 @@ function adjacentDayKeys(ymd) {
 }
 
 function normalizePhone(phone) {
-  return String(phone || "").replace(/\s/g, "");
+  return whitelist.normalizePhone(phone);
 }
 
 function sortBoard(board) {
@@ -106,26 +107,70 @@ async function syncLeadPlayFlags(db, phone, day) {
   return Object.assign({}, status, flags);
 }
 
+function whitelistFieldsForPhone(phone) {
+  var meta = whitelist.whitelistMetaForPhone(phone);
+  return {
+    storeId: meta.storeId || "",
+    olmId: meta.olmId || "",
+    circle: meta.circle || "",
+    whitelistName: meta.name || ""
+  };
+}
+
+function blockedWhitelistStatus(phone, day) {
+  day = day || todayKey();
+  return Object.assign(
+    {
+      phone: phone,
+      day: day,
+      used: 0,
+      left: 0,
+      maxReplays: MAX_REPLAYS,
+      canPlayToday: false,
+      playLimitReached: true,
+      whitelisted: false,
+      whitelistBlocked: true
+    },
+    whitelistFieldsForPhone(phone)
+  );
+}
+
+function assertPhoneWhitelisted(phone) {
+  if (!whitelist.isPhoneWhitelisted(phone)) {
+    throw new Error("This mobile number is not eligible to play.");
+  }
+}
+
 /** Check daily play limit from DB and persist flags on the lead record. */
 async function getLeadPlayStatus(phone, day) {
   phone = normalizePhone(phone);
   if (!phone) throw new Error("phone is required");
   day = day || todayKey();
+  if (!whitelist.isPhoneWhitelisted(phone)) {
+    return blockedWhitelistStatus(phone, day);
+  }
   var db = await getDb();
   await ensureIndexes(db);
-  return syncLeadPlayFlags(db, phone, day);
+  var status = await syncLeadPlayFlags(db, phone, day);
+  return Object.assign(
+    { whitelisted: true, whitelistBlocked: false },
+    status,
+    whitelistFieldsForPhone(phone)
+  );
 }
 
 async function upsertLead(body) {
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
+  assertPhoneWhitelisted(phone);
   var db = await getDb();
   await ensureIndexes(db);
   var now = new Date();
   var day = body.day || todayKey(now);
+  var meta = whitelist.whitelistMetaForPhone(phone);
   var doc = {
-    name: String(body.name || "").trim(),
-    storeId: String(body.storeId || "").trim(),
+    name: String(body.name || meta.name || "").trim(),
+    storeId: String(meta.storeId || meta.olmId || body.storeId || "").trim(),
     character: String(body.character || "").trim(),
     updatedAt: now
   };
@@ -166,6 +211,9 @@ async function getPlaysStatus(phone, day) {
 async function usePlay(phone, day) {
   phone = normalizePhone(phone);
   day = day || todayKey();
+  if (!whitelist.isPhoneWhitelisted(phone)) {
+    return Object.assign({ ok: false }, blockedWhitelistStatus(phone, day));
+  }
   var db = await getDb();
   await ensureIndexes(db);
   var coll = db.collection("daily_plays");
@@ -222,6 +270,7 @@ async function usePlay(phone, day) {
 async function submitScore(body) {
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
+  assertPhoneWhitelisted(phone);
   var day = body.day || todayKey();
   var coins = Number(body.coins) || 0;
   var priorityPoints = Number(body.priorityPoints) || 0;
@@ -444,6 +493,10 @@ module.exports = {
   MAX_REPLAYS: MAX_REPLAYS,
   todayKey: todayKey,
   normalizePhone: normalizePhone,
+  isPhoneWhitelisted: whitelist.isPhoneWhitelisted,
+  isWhitelistActive: whitelist.isWhitelistActive,
+  whitelistMetaForPhone: whitelist.whitelistMetaForPhone,
+  whitelistSize: whitelist.whitelistSize,
   upsertLead: upsertLead,
   getLeadPlayStatus: getLeadPlayStatus,
   getPlaysStatus: getPlaysStatus,

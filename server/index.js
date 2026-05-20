@@ -7,6 +7,7 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const { getUri } = require("./lib/db");
 const handlers = require("./lib/handlers");
+const whitelist = require("./lib/whitelist");
 const adminAuth = require("./lib/adminAuth");
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -18,7 +19,11 @@ app.use(express.json({ limit: "32kb" }));
 app.get("/api/health", function (_req, res) {
   res.json({
     ok: true,
-    mongoConfigured: !!getUri()
+    mongoConfigured: !!getUri(),
+    phoneWhitelistActive: whitelist.isWhitelistActive(),
+    phoneWhitelistRequired: whitelist.isWhitelistRequired(),
+    phoneWhitelistCount: whitelist.whitelistSize(),
+    phoneWhitelistPath: whitelist.getWhitelistPath()
   });
 });
 

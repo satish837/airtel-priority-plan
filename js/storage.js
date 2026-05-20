@@ -42,7 +42,10 @@
   }
 
   function normalizePhone(phone) {
-    return String(phone || "").replace(/\s/g, "");
+    var digits = String(phone || "").replace(/\D/g, "");
+    if (digits.indexOf("91") === 0 && digits.length === 12) digits = digits.slice(2);
+    if (digits.length >= 10) return digits.slice(-10);
+    return digits;
   }
 
   function read(key, fallback) {
@@ -109,16 +112,45 @@
     phone = normalizePhone(phone);
     if (!phone) return Promise.resolve({ canPlayToday: false, left: 0 });
     if (!useApi()) {
+      var host = global.location && global.location.hostname;
+      if (host && host !== "localhost" && host !== "127.0.0.1") {
+        return Promise.resolve({
+          canPlayToday: false,
+          left: 0,
+          whitelisted: false,
+          whitelistBlocked: true
+        });
+      }
       return Promise.resolve({
         canPlayToday: getReplaysLeft() > 0,
         left: getReplaysLeft(),
         used: getPlaysUsed(),
-        playLimitReached: getReplaysLeft() <= 0
+        playLimitReached: getReplaysLeft() <= 0,
+        whitelisted: true,
+        whitelistBlocked: false
       });
     }
     return apiFetch(
       "/api/leads/status?phone=" + encodeURIComponent(phone)
     ).then(function (data) {
+      if (data.whitelistBlocked || data.whitelisted === false) {
+        apiCanPlayToday = false;
+        apiReplaysLeft = 0;
+        return {
+          phone: data.phone || phone,
+          day: data.day,
+          used: data.used || 0,
+          left: 0,
+          maxReplays: data.maxReplays || MAX_REPLAYS,
+          canPlayToday: false,
+          playLimitReached: true,
+          whitelisted: false,
+          whitelistBlocked: true,
+          storeId: data.storeId || "",
+          olmId: data.olmId || "",
+          whitelistName: data.whitelistName || ""
+        };
+      }
       applyPlayStatus(data);
       return {
         phone: data.phone,
@@ -127,7 +159,12 @@
         left: data.left,
         maxReplays: data.maxReplays || MAX_REPLAYS,
         canPlayToday: !!data.canPlayToday,
-        playLimitReached: !!data.playLimitReached
+        playLimitReached: !!data.playLimitReached,
+        whitelisted: true,
+        whitelistBlocked: false,
+        storeId: data.storeId || data.olmId || "",
+        olmId: data.olmId || data.storeId || "",
+        whitelistName: data.whitelistName || ""
       };
     });
   }
@@ -266,7 +303,11 @@
 
   function saveUser(user) {
     write("airtel_user", user);
-    if (!useApi()) return Promise.resolve(user);
+    if (!useApi()) {
+      return Promise.reject(
+        new Error("Could not connect to game server to verify your number.")
+      );
+    }
     return apiFetch("/api/leads", {
       method: "POST",
       body: JSON.stringify({

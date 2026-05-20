@@ -50,6 +50,35 @@ location.reload();
    - `ADMIN_KEY` = random string for `/api/dashboard`
 3. Redeploy. The app calls same-origin paths like `/api/leads/status` (do not set `AIRTEL_API_BASE` to `/api` on Vercel — that double-prefixes URLs).
 
+## Phone whitelist
+
+Only numbers in `data/phone-whitelist.json` can register and play. The list is imported from your Excel file (`MSISDN` column). **OLM ID** from the sheet is mapped to the **Store ID** field (`data/phone-whitelist-map.json`) and filled automatically when the user enters their phone.
+
+```bash
+pip3 install pyxlsb
+python3 scripts/import-whitelist.py "/Users/administrator/Downloads/Whitelist Data.xlsb"
+```
+
+Restart the API after updating the file. Check:
+
+```bash
+curl http://localhost:3001/api/health
+# phoneWhitelistActive: true, phoneWhitelistCount: 18729
+```
+
+To **disable** the whitelist (allow all numbers): set `PHONE_WHITELIST=off` in `server/.env`.
+
+Non-listed numbers see: *"This mobile number is not eligible to play."*
+
+**Deploy:** commit `data/phone-whitelist.json` to git. Vercel bundles it via `vercel.json` `includeFiles`. After deploy, check:
+
+```bash
+curl https://YOUR_APP.vercel.app/api/health
+# phoneWhitelistActive: true, phoneWhitelistCount: 18729
+```
+
+If `phoneWhitelistActive` is `false` on production, nobody should be able to play (fail-closed). Redeploy with the JSON file included.
+
 ## Collections
 
 | Collection     | Purpose                                      |

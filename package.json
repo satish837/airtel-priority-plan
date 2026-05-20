@@ -4,6 +4,7 @@
   "description": "Airtel Fast Lane Challenge — static game + MongoDB API",
   "scripts": {
     "api": "npm --prefix server start",
+    "serve": "python3 serve.py",
     "api:install": "npm --prefix server install"
   },
   "dependencies": {

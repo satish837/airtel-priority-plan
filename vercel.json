@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/**/*.js": {
+      "includeFiles": "data/phone-whitelist.json,data/phone-whitelist-map.json"
+    }
+  },
   "rewrites": [
     {
       "source": "/cdn/:path*",
