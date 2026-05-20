@@ -320,6 +320,11 @@
     }).then(function (data) {
       var ps = data.playStatus || (data.lead && data.lead.playStatus);
       if (ps) applyPlayStatus(ps);
+      var lead = data.lead;
+      if (lead && lead.storeId) {
+        user.storeId = lead.storeId;
+        write("airtel_user", user);
+      }
       return syncReplaysFromApi(user.phone).then(function () {
         return user;
       });

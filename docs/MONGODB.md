@@ -52,7 +52,7 @@ location.reload();
 
 ## Phone whitelist
 
-Only numbers in `data/phone-whitelist.json` can register and play. The list is imported from your Excel file (`MSISDN` column). **OLM ID** from the sheet is mapped to the **Store ID** field (`data/phone-whitelist-map.json`) and filled automatically when the user enters their phone.
+Only numbers in `data/phone-whitelist.json` can register and play. The list is imported from your Excel file (`MSISDN` column). **OLM ID** from the sheet is stored in `data/phone-whitelist-map.json`. Users type the OLM ID themselves; it must **match** the value on file for that phone (case-insensitive), or registration and score submission are rejected.
 
 ```bash
 pip3 install pyxlsb

@@ -12,6 +12,7 @@
   var runEnded = false;
   var scoreSubmittedThisRun = false;
   var countdownTimer = null;
+  var lastEligibilityStatus = null;
   var gameFrameBase = frame
     ? frame.getAttribute("src").split("#")[0].split("?")[0] +
       "?origin=https%3A%2F%2Fgamesnacks.com&gameCenterId=gamesnacks"
@@ -217,33 +218,106 @@
     if (btn) btn.disabled = !enabled;
   }
 
-  function updateReplays(phone) {
+  function expectedStoreIdFromStatus(status) {
+    return String((status && (status.storeId || status.olmId)) || "").trim();
+  }
+
+  function storeIdsMatch(entered, expected) {
+    return (
+      String(entered || "").trim().toUpperCase() ===
+      String(expected || "").trim().toUpperCase()
+    );
+  }
+
+  function updateReplaysLeftText(status) {
     var el = $("replays-left");
-    var check = phone
-      ? AirtelStorage.checkPlayEligibility(phone.replace(/\s/g, ""))
-      : AirtelStorage.getReplaysLeftAsync().then(function (left) {
-          return { left: left, canPlayToday: left > 0 };
+    if (!el) return;
+    var left = status.left != null ? status.left : 0;
+    if (status.whitelistBlocked || status.whitelisted === false) {
+      el.textContent = "Number not on eligible list";
+    } else if (left <= 0 || status.canPlayToday === false) {
+      el.textContent = "No attempts left today";
+    } else {
+      el.textContent =
+        left === 1 ? "1 attempt left today" : left + " attempts left today";
+    }
+    el.hidden = false;
+  }
+
+  function applyRegistrationState(status) {
+    lastEligibilityStatus = status;
+    updateReplaysLeftText(status);
+    applyWhitelistNameField(status);
+
+    var expected = expectedStoreIdFromStatus(status);
+    var entered = ($("reg-store") && $("reg-store").value.trim()) || "";
+    var left = status.left != null ? status.left : 0;
+    var phoneOk =
+      status.whitelistBlocked !== true && status.whitelisted !== false;
+    var playsOk = status.canPlayToday !== false && left > 0;
+    var storeMismatch =
+      !!expected && !!entered && !storeIdsMatch(entered, expected);
+    var storeOk = !expected || (!!entered && storeIdsMatch(entered, expected));
+
+    if (!phoneOk) {
+      $("register-error").textContent =
+        "This mobile number is not eligible to play.";
+    } else if (!playsOk) {
+      $("register-error").textContent =
+        "This number has used all " +
+        AirtelStorage.MAX_REPLAYS +
+        " plays today. Try again tomorrow.";
+    } else if (storeMismatch) {
+      $("register-error").textContent =
+        "The OLM ID does not match this mobile number.";
+    } else {
+      $("register-error").textContent = "";
+    }
+
+    setStartButtonEnabled(phoneOk && playsOk && storeOk);
+  }
+
+  function refreshRegistrationForm() {
+    var phone =
+      ($("reg-phone") && $("reg-phone").value.trim().replace(/\s/g, "")) || "";
+    if (!/^\d{10}$/.test(phone)) {
+      lastEligibilityStatus = null;
+      $("register-error").textContent = "";
+      setStartButtonEnabled(phone.length === 0);
+      return Promise.resolve();
+    }
+    if (!AirtelStorage.useApi()) {
+      return AirtelStorage.getReplaysLeftAsync().then(function (left) {
+        applyRegistrationState({
+          left: left,
+          canPlayToday: left > 0,
+          whitelisted: true,
+          whitelistBlocked: false
         });
-    check.then(function (status) {
-      var left = status.left != null ? status.left : 0;
-      if (el) {
-        if (status.whitelistBlocked || status.whitelisted === false) {
-          el.textContent = "Number not on eligible list";
-        } else if (left <= 0 || status.canPlayToday === false) {
-          el.textContent = "No attempts left today";
-        } else {
-          el.textContent =
-            left === 1 ? "1 attempt left today" : left + " attempts left today";
-        }
-        el.hidden = false;
-      }
-      var canStart =
-        status.whitelistBlocked !== true &&
-        status.whitelisted !== false &&
-        status.canPlayToday !== false &&
-        left > 0;
-      setStartButtonEnabled(canStart);
-    });
+      });
+    }
+    return AirtelStorage.checkPlayEligibility(phone)
+      .then(function (status) {
+        applyRegistrationState(Object.assign({ phone: phone }, status));
+      })
+      .catch(function () {
+        lastEligibilityStatus = null;
+        $("register-error").textContent =
+          "Could not verify play limit. Is the API running?";
+        setStartButtonEnabled(false);
+      });
+  }
+
+  function onStoreIdInput() {
+    if (lastEligibilityStatus) {
+      applyRegistrationState(lastEligibilityStatus);
+      return;
+    }
+    var phone =
+      ($("reg-phone") && $("reg-phone").value.trim().replace(/\s/g, "")) || "";
+    if (/^\d{10}$/.test(phone)) {
+      refreshRegistrationForm();
+    }
   }
 
   function applyWhitelistNameField(status) {
@@ -258,39 +332,12 @@
     }
   }
 
+  function updateReplays() {
+    return refreshRegistrationForm();
+  }
+
   function checkPhonePlayLimit() {
-    var phone = ($("reg-phone") && $("reg-phone").value.trim()) || "";
-    phone = phone.replace(/\s/g, "");
-    if (!/^\d{10}$/.test(phone)) {
-      $("register-error").textContent = "";
-      setStartButtonEnabled(true);
-      return;
-    }
-    if (!AirtelStorage.useApi()) {
-      updateReplays();
-      return;
-    }
-    AirtelStorage.checkPlayEligibility(phone)
-      .then(function (status) {
-        applyWhitelistNameField(status);
-        updateReplays(phone);
-        if (status.whitelistBlocked || status.whitelisted === false) {
-          $("register-error").textContent =
-            "This mobile number is not eligible to play.";
-        } else if (!status.canPlayToday) {
-          $("register-error").textContent =
-            "This number has used all " +
-            AirtelStorage.MAX_REPLAYS +
-            " plays today. Try again tomorrow.";
-        } else {
-          $("register-error").textContent = "";
-        }
-      })
-      .catch(function () {
-        $("register-error").textContent =
-          "Could not verify play limit. Is the API running?";
-        setStartButtonEnabled(false);
-      });
+    return refreshRegistrationForm();
   }
 
   function chancesLeftText(n) {
@@ -392,6 +439,18 @@
         if (!status.canPlayToday || status.left <= 0) {
           throw new Error("NO_PLAYS");
         }
+        var expectedId = String(
+          status.storeId || status.olmId || ""
+        ).trim();
+        if (expectedId) {
+          var entered = String(user.storeId || "").trim();
+          if (
+            !entered ||
+            entered.toUpperCase() !== expectedId.toUpperCase()
+          ) {
+            throw new Error("STORE_ID_MISMATCH");
+          }
+        }
         return AirtelStorage.saveUser(user);
       })
       .then(function () {
@@ -414,6 +473,9 @@
         if (err && err.message === "NOT_WHITELISTED") {
           $("register-error").textContent =
             "This mobile number is not eligible to play.";
+        } else if (err && err.message === "STORE_ID_MISMATCH") {
+          $("register-error").textContent =
+            "The OLM ID does not match this mobile number.";
         } else if (err && err.message === "NO_PLAYS") {
           $("register-error").textContent =
             "No plays left today. Try again tomorrow!";
@@ -632,7 +694,14 @@
     regPhone.addEventListener("input", function () {
       var p = regPhone.value.replace(/\s/g, "");
       if (p.length === 10) checkPhonePlayLimit();
+      else if (p.length < 10) lastEligibilityStatus = null;
     });
+  }
+
+  var regStore = $("reg-store");
+  if (regStore) {
+    regStore.addEventListener("blur", onStoreIdInput);
+    regStore.addEventListener("input", onStoreIdInput);
   }
 
   function reloadGameFrame(done) {

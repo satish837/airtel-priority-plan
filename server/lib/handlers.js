@@ -141,6 +141,32 @@ function assertPhoneWhitelisted(phone) {
   }
 }
 
+function normalizeStoreIdForCompare(id) {
+  return String(id || "").trim().toUpperCase();
+}
+
+/** OLM / Store ID from whitelist for this phone (may be empty in list-only mode). */
+function expectedStoreIdForPhone(phone) {
+  var meta = whitelist.whitelistMetaForPhone(phone);
+  return String(meta.storeId || meta.olmId || "").trim();
+}
+
+/**
+ * When the whitelist has an OLM ID for this number, the user must type the same value
+ * (case-insensitive). Skipped when the map has no store id for the phone.
+ */
+function assertSubmittedStoreIdMatches(phone, submitted) {
+  var expected = expectedStoreIdForPhone(phone);
+  if (!expected) return;
+  var got = String(submitted || "").trim();
+  if (!got) {
+    throw new Error("OLM ID (Store ID) is required.");
+  }
+  if (normalizeStoreIdForCompare(got) !== normalizeStoreIdForCompare(expected)) {
+    throw new Error("The OLM ID does not match this mobile number.");
+  }
+}
+
 /** Check daily play limit from DB and persist flags on the lead record. */
 async function getLeadPlayStatus(phone, day) {
   phone = normalizePhone(phone);
@@ -163,14 +189,16 @@ async function upsertLead(body) {
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
   assertPhoneWhitelisted(phone);
+  assertSubmittedStoreIdMatches(phone, body.storeId);
   var db = await getDb();
   await ensureIndexes(db);
   var now = new Date();
   var day = body.day || todayKey(now);
   var meta = whitelist.whitelistMetaForPhone(phone);
+  var canonicalStore = expectedStoreIdForPhone(phone);
   var doc = {
     name: String(body.name || meta.name || "").trim(),
-    storeId: String(body.storeId || meta.storeId || meta.olmId || "").trim(),
+    storeId: canonicalStore || String(body.storeId || "").trim(),
     character: String(body.character || "").trim(),
     updatedAt: now
   };
@@ -271,14 +299,16 @@ async function submitScore(body) {
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
   assertPhoneWhitelisted(phone);
+  assertSubmittedStoreIdMatches(phone, body.storeId);
   var day = body.day || todayKey();
   var coins = Number(body.coins) || 0;
   var priorityPoints = Number(body.priorityPoints) || 0;
   var fastLaneCoins = Number(body.fastLaneCoins) || 0;
+  var canonicalStore = expectedStoreIdForPhone(phone);
   var entry = {
     phone: phone,
     name: String(body.name || "").trim(),
-    storeId: String(body.storeId || "").trim(),
+    storeId: canonicalStore || String(body.storeId || "").trim(),
     coins: coins,
     priorityPoints: priorityPoints,
     fastLaneCoins: fastLaneCoins,
