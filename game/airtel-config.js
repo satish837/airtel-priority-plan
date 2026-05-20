@@ -23,7 +23,7 @@
 
   window.AIRTEL_CHARACTER = "OmNelle";
 
-  /** Mission 1 play time (seconds). Replaces the default 800m Reach Distance goal. */
+  /** Mission 1 play time (seconds). Reach-distance briefing is hidden in airtel-challenge.js. */
   window.AIRTEL_PLAY_SESSION_SEC = 180;
 
   /** Calendar day for plays, scores, leaderboard (IST). Set "UTC" for UTC-only keys. */

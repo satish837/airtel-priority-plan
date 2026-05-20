@@ -2,7 +2,7 @@
   "use strict";
 
   var LETTERS = ["P", "R", "I", "O", "R", "I", "T", "Y"];
-  var MAX_REPLAYS = 99;
+  var MAX_REPLAYS = 3;
 
   var apiReplaysLeft = null;
   var apiCanPlayToday = null;

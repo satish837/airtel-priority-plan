@@ -516,10 +516,100 @@
       }
       var m = model.chapters[0].missions[0];
       if (!m || m.index !== 1) return;
-      m.task = "Play for 3 minutes";
+      /* Timed PRIORITY run — unreachable distance goal; briefing hidden via entity suppressor. */
+      m.task = " ";
       m.missionType = "ReachDistance";
       m.missionGoal = [99999, 99999, 99999];
     } catch (e) {}
+  }
+
+  var briefingHideTicks = 0;
+  var missionUiSuppressInterval = null;
+  var MISSION_UI_ENTITY_NAMES = [
+    "TransitionScreen",
+    "MissionDescriptionContainer",
+    "MissionTargetContainer",
+    "ReachDistanceTarget"
+  ];
+
+  function disableEntityTree(entity) {
+    if (!entity) return;
+    try {
+      entity.enabled = false;
+    } catch (e) {}
+    var ch = entity.children;
+    if (!ch || !ch.length) return;
+    for (var i = 0; i < ch.length; i++) disableEntityTree(ch[i]);
+  }
+
+  function invokeTransitionScreenHide(entity) {
+    if (!entity || !entity.script) return;
+    try {
+      var s =
+        entity.script.transitionScreen ||
+        entity.script.TransitionScreen;
+      if (!s && entity.script._scripts) {
+        var scripts = entity.script._scripts;
+        for (var k in scripts) {
+          if (/transition/i.test(k)) {
+            s = scripts[k];
+            break;
+          }
+        }
+      }
+      if (!s) return;
+      ["hide", "onHide", "_hide", "hideTransition", "dismiss"].forEach(function (m) {
+        if (typeof s[m] === "function") s[m]();
+      });
+    } catch (e) {}
+  }
+
+  function fireHideMissionEvents(app) {
+    if (!app || typeof EventTypes === "undefined") return;
+    try {
+      Object.keys(EventTypes).forEach(function (k) {
+        if (k.indexOf("HIDE") !== 0) return;
+        if (!/TRANSITION|MISSION|PANEL|BRIEF|TARGET|GOAL/i.test(k)) return;
+        try {
+          app.fire(EventTypes[k], 0, function () {});
+          app.fire(EventTypes[k], 0.35, function () {});
+        } catch (e) {}
+      });
+    } catch (e) {}
+  }
+
+  function suppressMissionBlockUi(app) {
+    if (!app || !app.root || typeof app.root.findByName !== "function") return;
+    dismissNativeResultUi(app);
+    fireHideMissionEvents(app);
+    for (var i = 0; i < MISSION_UI_ENTITY_NAMES.length; i++) {
+      var name = MISSION_UI_ENTITY_NAMES[i];
+      var ent = app.root.findByName(name);
+      if (!ent) continue;
+      disableEntityTree(ent);
+      if (name === "TransitionScreen") invokeTransitionScreenHide(ent);
+    }
+  }
+
+  function startMissionUiSuppressor(app) {
+    if (missionUiSuppressInterval) return;
+    suppressMissionBlockUi(app);
+    missionUiSuppressInterval = setInterval(function () {
+      var a = getApp();
+      if (a) suppressMissionBlockUi(a);
+    }, 250);
+  }
+
+  function stopMissionUiSuppressor() {
+    if (missionUiSuppressInterval) {
+      clearInterval(missionUiSuppressInterval);
+      missionUiSuppressInterval = null;
+    }
+  }
+
+  function hideMissionBriefingOverlay(app) {
+    suppressMissionBlockUi(app);
+    briefingHideTicks = 48;
   }
 
   function clearSessionTimerInterval() {
@@ -805,7 +895,13 @@
       });
     }
 
+    startMissionUiSuppressor(app);
+
     app.on("update", function () {
+      if (briefingHideTicks > 0) {
+        briefingHideTicks--;
+        suppressMissionBlockUi(app);
+      }
       try {
         if (document.documentElement.classList.contains("airtel-mission-result-tint")) {
           if (typeof GameState !== "undefined") {
@@ -1100,9 +1196,11 @@
       var endless =
         typeof isEndlessMode === "function" ? isEndlessMode() : false;
       /* Load mission/level assets while the lead form is still visible */
-      MissionsManager.getInstance().launchSelectedMode(endless, false, 0);
+      MissionsManager.getInstance().launchSelectedMode(endless, true, 0);
       gameplayPrimed = true;
       app.timeScale = 0;
+      hideMissionBriefingOverlay(app);
+      startMissionUiSuppressor(app);
     } catch (e) {
       console.warn("Airtel: primeGameplay failed", e);
     }
@@ -1120,11 +1218,7 @@
         app.timeScale = 1;
       } catch (e) {}
       kickStartGame();
-      try {
-        if (typeof EventTypes !== "undefined") {
-          app.fire(EventTypes.HIDE_TRANSITION_SCREEN, 0, function () {});
-        }
-      } catch (e) {}
+      suppressMissionBlockUi(app);
       if (ticks >= 40) clearInterval(id);
     }, 350);
   }
@@ -1185,8 +1279,9 @@
       patchMissionOneForTimedPlay();
       var endless =
         typeof isEndlessMode === "function" ? isEndlessMode() : false;
-      MissionsManager.getInstance().launchSelectedMode(endless, false, 0);
+      MissionsManager.getInstance().launchSelectedMode(endless, true, 0);
       gameplayPrimed = true;
+      hideMissionBriefingOverlay(app);
       return true;
     } catch (e) {
       console.warn("Airtel: launchSelectedMode failed", e);
@@ -1216,11 +1311,12 @@
     dismissNativeResultUi(app);
     resetGameStateToRunning(app);
     launchFreshMission(app);
+    hideMissionBriefingOverlay(app);
+    startMissionUiSuppressor(app);
     beginRunUnstick(app);
 
     try {
       if (typeof EventTypes !== "undefined") {
-        app.fire(EventTypes.HIDE_TRANSITION_SCREEN, 0, function () {});
         app.fire(EventTypes.START_GAMEPLAY_MUSIC);
       }
     } catch (e) {}
@@ -1228,9 +1324,11 @@
     kickStartGame();
     beginPlaySessionTimer();
     startLetterSpawner(app);
-    setTimeout(function () {
-      dismissNativeResultUi(app);
-    }, 400);
+    [0, 120, 400, 900, 1600].forEach(function (ms) {
+      setTimeout(function () {
+        hideMissionBriefingOverlay(app);
+      }, ms);
+    });
     setTimeout(function () {
       if (!retryInProgress) pushHud();
     }, 800);

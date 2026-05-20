@@ -297,6 +297,7 @@ pc.script.createLoadingScreen(function (app) {
             }
         } catch (e) {}
         if (typeof EventTypes !== 'undefined') {
+            app.fire(EventTypes.HIDE_TRANSITION_SCREEN, 0, () => {});
             app.fire(EventTypes.HIDE_TRANSITION_SCREEN, 0.35, () => {});
         }
         if (isAirtelEmbed()) {
@@ -316,6 +317,10 @@ pc.script.createLoadingScreen(function (app) {
         }
     };
 
+    var isAirtelShellEmbed = function() {
+        try { return window.parent && window.parent !== window; } catch (e) { return false; }
+    };
+
     app.on('postinitialize', () => {
         setTimeout(() => {
             if (typeof EventTypes === 'undefined' || typeof AssetsLoader === 'undefined') {
@@ -323,7 +328,9 @@ pc.script.createLoadingScreen(function (app) {
                 finishBoot();
                 return;
             }
-            app.fire(EventTypes.SHOW_TRANSITION_SCREEN, 0.0, () => {});
+            if (!isAirtelShellEmbed()) {
+                app.fire(EventTypes.SHOW_TRANSITION_SCREEN, 0.0, () => {});
+            }
             app.on(EventTypes.ASSETS_LOADER_PROGRESS, updatePostLoadingProgress);
             AssetsLoader.getInstance().loadPendingAssets().then(() => {
                 app.off(EventTypes.ASSETS_LOADER_PROGRESS, updatePostLoadingProgress);
