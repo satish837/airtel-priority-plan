@@ -246,15 +246,7 @@
     });
   }
 
-  function applyWhitelistStoreFields(status) {
-    var storeEl = $("reg-store");
-    if (!storeEl) return;
-    if (status && status.storeId) {
-      storeEl.value = status.storeId;
-      storeEl.readOnly = true;
-    } else {
-      storeEl.readOnly = false;
-    }
+  function applyWhitelistNameField(status) {
     var nameEl = $("reg-name");
     if (
       nameEl &&
@@ -269,10 +261,8 @@
   function checkPhonePlayLimit() {
     var phone = ($("reg-phone") && $("reg-phone").value.trim()) || "";
     phone = phone.replace(/\s/g, "");
-    var storeEl = $("reg-store");
     if (!/^\d{10}$/.test(phone)) {
       $("register-error").textContent = "";
-      if (storeEl) storeEl.readOnly = false;
       setStartButtonEnabled(true);
       return;
     }
@@ -282,7 +272,7 @@
     }
     AirtelStorage.checkPlayEligibility(phone)
       .then(function (status) {
-        applyWhitelistStoreFields(status);
+        applyWhitelistNameField(status);
         updateReplays(phone);
         if (status.whitelistBlocked || status.whitelisted === false) {
           $("register-error").textContent =
@@ -292,7 +282,7 @@
             "This number has used all " +
             AirtelStorage.MAX_REPLAYS +
             " plays today. Try again tomorrow.";
-        } else if (!$("register-error").textContent) {
+        } else {
           $("register-error").textContent = "";
         }
       })

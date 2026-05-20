@@ -170,7 +170,7 @@ async function upsertLead(body) {
   var meta = whitelist.whitelistMetaForPhone(phone);
   var doc = {
     name: String(body.name || meta.name || "").trim(),
-    storeId: String(meta.storeId || meta.olmId || body.storeId || "").trim(),
+    storeId: String(body.storeId || meta.storeId || meta.olmId || "").trim(),
     character: String(body.character || "").trim(),
     updatedAt: now
   };
