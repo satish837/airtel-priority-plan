@@ -252,7 +252,116 @@ tr:hover td {
   display: none !important;
 }
 
+/* Whitelist admin — entry form */
+.section-title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.form-card {
+  padding: 20px 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  margin-bottom: 1.5rem;
+}
+
+.entry-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+  max-width: 720px;
+}
+
+.entry-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.entry-form .field-full {
+  grid-column: 1 / -1;
+}
+
+.entry-form label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.02em;
+}
+
+.entry-form label .hint {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.entry-form input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.entry-form input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.entry-form input:hover {
+  border-color: rgba(255, 140, 0, 0.4);
+}
+
+.entry-form input:focus {
+  outline: none;
+  border-color: #ff8c00;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 2px rgba(230, 46, 0, 0.25);
+}
+
+.entry-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.entry-form-actions .btn-primary {
+  min-width: 160px;
+}
+
+.pager-text {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.auth-panel a {
+  color: #ff8c00;
+  text-decoration: none;
+}
+
+.auth-panel a:hover {
+  text-decoration: underline;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
 @media (max-width: 640px) {
+  .entry-form {
+    grid-template-columns: 1fr;
+  }
+
   th,
   td {
     padding: 8px 10px;

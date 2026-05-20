@@ -52,32 +52,47 @@ location.reload();
 
 ## Phone whitelist
 
-Only numbers in `data/phone-whitelist.json` can register and play. The list is imported from your Excel file (`MSISDN` column). **OLM ID** from the sheet is stored in `data/phone-whitelist-map.json`. Users type the OLM ID themselves; it must **match** the value on file for that phone (case-insensitive), or registration and score submission are rejected.
+Eligible numbers are checked before play. Each row has **phone**, **OLM ID**, optional **name** and **circle**. Users must enter the correct OLM ID for their number (case-insensitive).
+
+### MongoDB (recommended)
+
+Store whitelist rows in the `phone_whitelist` collection. The API loads them into memory on startup (`PHONE_WHITELIST_SOURCE=auto` or `mongodb`).
+
+**One-time seed from Excel export:**
 
 ```bash
 pip3 install pyxlsb
-python3 scripts/import-whitelist.py "/Users/administrator/Downloads/Whitelist Data.xlsb"
+python3 scripts/import-whitelist.py "/path/to/Whitelist Data.xlsb"
+cd server && node ../scripts/seed-whitelist-mongo.js
 ```
 
-Restart the API after updating the file. Check:
+**Admin UI:** open `http://localhost:8080/whitelist-admin.html` (same `ADMIN_KEY` as the player dashboard). Add/update/remove entries; changes apply immediately after save.
+
+**Admin API** (header `x-admin-key: YOUR_ADMIN_KEY`):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/admin/whitelist/stats` | Cache + MongoDB counts |
+| GET | `/api/admin/whitelist?q=&page=&limit=` | List entries |
+| POST | `/api/admin/whitelist` | Upsert `{ phone, olmId, name?, circle? }` |
+| DELETE | `/api/admin/whitelist?phone=` | Deactivate entry |
+| POST | `/api/admin/whitelist/import-files` | Bulk import from `data/phone-whitelist-map.json` |
+| POST | `/api/admin/whitelist/import` | Bulk `{ entries: [...] }` or `{ map: { phone: row } }` |
+
+Set `PHONE_WHITELIST_SOURCE=mongodb` to require MongoDB (no JSON fallback). Default `auto` uses MongoDB when the collection has rows, otherwise falls back to JSON files.
+
+### JSON files (legacy / fallback)
+
+`data/phone-whitelist-map.json` (phone → OLM ID, name, circle). Import from Excel with `scripts/import-whitelist.py`. Vercel can still bundle these via `vercel.json` `includeFiles` until MongoDB is seeded.
 
 ```bash
 curl http://localhost:3001/api/health
-# phoneWhitelistActive: true, phoneWhitelistCount: 18729
+# phoneWhitelistSource: "mongodb", phoneWhitelistMongoCount: 18729
 ```
 
 To **disable** the whitelist (allow all numbers): set `PHONE_WHITELIST=off` in `server/.env`.
 
 Non-listed numbers see: *"This mobile number is not eligible to play."*
-
-**Deploy:** commit `data/phone-whitelist.json` to git. Vercel bundles it via `vercel.json` `includeFiles`. After deploy, check:
-
-```bash
-curl https://YOUR_APP.vercel.app/api/health
-# phoneWhitelistActive: true, phoneWhitelistCount: 18729
-```
-
-If `phoneWhitelistActive` is `false` on production, nobody should be able to play (fail-closed). Redeploy with the JSON file included.
 
 ## Collections
 

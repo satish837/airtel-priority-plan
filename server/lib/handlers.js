@@ -169,6 +169,7 @@ function assertSubmittedStoreIdMatches(phone, submitted) {
 
 /** Check daily play limit from DB and persist flags on the lead record. */
 async function getLeadPlayStatus(phone, day) {
+  await whitelist.initWhitelist();
   phone = normalizePhone(phone);
   if (!phone) throw new Error("phone is required");
   day = day || todayKey();
@@ -186,6 +187,7 @@ async function getLeadPlayStatus(phone, day) {
 }
 
 async function upsertLead(body) {
+  await whitelist.initWhitelist();
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
   assertPhoneWhitelisted(phone);
@@ -237,6 +239,7 @@ async function getPlaysStatus(phone, day) {
 }
 
 async function usePlay(phone, day) {
+  await whitelist.initWhitelist();
   phone = normalizePhone(phone);
   day = day || todayKey();
   if (!whitelist.isPhoneWhitelisted(phone)) {
@@ -296,6 +299,7 @@ async function usePlay(phone, day) {
 }
 
 async function submitScore(body) {
+  await whitelist.initWhitelist();
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
   assertPhoneWhitelisted(phone);

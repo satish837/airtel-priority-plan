@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Airtel Challenge — Whitelist Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <section id="auth-panel" class="auth-panel">
+    <h2>Whitelist admin</h2>
+    <p>Sign in with your admin key to manage eligible numbers in MongoDB.</p>
+    <input id="admin-key" type="password" placeholder="Admin key" autocomplete="current-password">
+    <p id="auth-error" class="error"></p>
+    <button type="button" class="btn btn-primary" id="btn-auth" style="width:100%">Sign in</button>
+    <p style="margin-top:1rem;font-size:0.85rem;opacity:0.85">
+      <a href="dashboard.html">Player dashboard</a> ·
+      <a href="index.html">Game</a>
+    </p>
+  </section>
+
+  <div id="admin-main" class="dashboard-wrap hidden">
+    <header class="dashboard-header">
+      <div>
+        <h1>Phone whitelist</h1>
+        <p id="stats-line">Loading…</p>
+      </div>
+      <div class="dashboard-actions">
+        <input type="search" id="search" placeholder="Search phone, name, OLM ID…" aria-label="Search">
+        <button type="button" class="btn btn-ghost" id="btn-import-files" title="Import data/phone-whitelist-map.json into MongoDB">Import JSON files</button>
+        <button type="button" class="btn btn-primary" id="btn-refresh">Refresh</button>
+        <button type="button" class="btn btn-ghost" id="btn-logout">Sign out</button>
+      </div>
+    </header>
+
+    <p id="status-bar" class="status-bar hidden" role="status"></p>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Active in MongoDB</div>
+        <div class="value" id="stat-mongo">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">In-memory cache</div>
+        <div class="value" id="stat-cache">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Data source</div>
+        <div class="value" id="stat-source" style="font-size:1rem">—</div>
+      </div>
+    </div>
+
+    <section class="panel-section active">
+      <div class="form-card">
+        <h2 class="section-title">Add or update entry</h2>
+        <form id="entry-form" class="entry-form" autocomplete="off">
+          <div class="field">
+            <label for="f-phone">Phone <span class="hint">(10 digits)</span></label>
+            <input id="f-phone" type="tel" inputmode="numeric" maxlength="10" required placeholder="9876543210" autocomplete="tel">
+          </div>
+          <div class="field">
+            <label for="f-olm">OLM ID <span class="hint">(Store ID)</span></label>
+            <input id="f-olm" type="text" required placeholder="A155S97F" autocapitalize="characters">
+          </div>
+          <div class="field">
+            <label for="f-name">Name <span class="hint">(optional)</span></label>
+            <input id="f-name" type="text" placeholder="Player name" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="f-circle">Circle <span class="hint">(optional)</span></label>
+            <input id="f-circle" type="text" placeholder="e.g. ROM">
+          </div>
+          <div class="entry-form-actions">
+            <button type="submit" class="btn btn-primary">Whitelist</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel-section active">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Phone</th>
+              <th>OLM ID</th>
+              <th>Name</th>
+              <th>Circle</th>
+              <th>Updated</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="whitelist-tbody"></tbody>
+        </table>
+      </div>
+      <p id="pager" class="pager-text"></p>
+    </section>
+  </div>
+
+  <script src="js/whitelist-admin.js"></script>
+</body>
+</html>
