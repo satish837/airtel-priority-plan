@@ -3,11 +3,6 @@
 
   var STORAGE_KEY = "airtel_admin_key";
 
-  function apiBase() {
-    return String(window.AIRTEL_API_BASE != null ? window.AIRTEL_API_BASE : "")
-      .replace(/\/$/, "");
-  }
-
   function parseJsonResponse(res) {
     var ct = (res.headers.get("content-type") || "").toLowerCase();
     if (ct.indexOf("application/json") >= 0) {
@@ -76,8 +71,8 @@
   function fetchDashboard(day) {
     var key = getAdminKey();
     var url =
-      apiBase() +
-      "/api/dashboard?day=" +
+      airtelApiUrl("/api/dashboard") +
+      "?day=" +
       encodeURIComponent(day) +
       "&_cb=" +
       Date.now() +

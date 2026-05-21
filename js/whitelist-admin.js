@@ -4,11 +4,6 @@
   var STORAGE_KEY = "airtel_admin_key";
   var currentPage = 1;
 
-  function apiBase() {
-    return String(window.AIRTEL_API_BASE != null ? window.AIRTEL_API_BASE : "")
-      .replace(/\/$/, "");
-  }
-
   function friendlyFetchError(err) {
     var msg = (err && err.message) || "Request failed";
     if (msg === "Failed to fetch") {
@@ -21,7 +16,7 @@
       msg.indexOf("Access Denied") >= 0
     ) {
       return (
-        "This site is serving static files only. API calls must go to your Vercel deployment — reload after deploying js/api-config.js."
+        "This site is serving static files only. API calls must go to api.airtrel-priority-plan.in — reload after deploying js/api-config.js."
       );
     }
     return msg;
@@ -54,7 +49,8 @@
     bar.classList.toggle("hidden", !msg);
   }
 
-  function apiUrl(path) {
+  /** Append admin key query param (header is also sent). */
+  function withAdminKeyQuery(path) {
     var key = getAdminKey();
     if (!key) return path;
     var sep = path.indexOf("?") >= 0 ? "&" : "?";
@@ -80,7 +76,8 @@
       { "Content-Type": "application/json", "x-admin-key": key },
       opts.headers || {}
     );
-    return fetch(apiBase() + apiUrl(path), opts).then(function (res) {
+    var url = airtelApiUrl(withAdminKeyQuery(path));
+    return fetch(url, opts).then(function (res) {
       var ct = (res.headers.get("content-type") || "").toLowerCase();
       var body =
         ct.indexOf("application/json") >= 0

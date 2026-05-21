@@ -11,10 +11,13 @@
   var initPromise = null;
   var PENDING_SCORES_KEY = "airtel_pending_scores";
 
-  function apiBase() {
+  function apiUrl(path) {
+    if (typeof global.airtelApiUrl === "function") {
+      return global.airtelApiUrl(path);
+    }
     var base = global.AIRTEL_API_BASE;
-    if (base === undefined || base === null) return "";
-    return String(base).replace(/\/$/, "");
+    if (base === undefined || base === null) return path;
+    return String(base).replace(/\/$/, "") + path;
   }
 
   /** "" = same-origin /api/* on Vercel. Use AIRTEL_API_BASE = "local" to disable API. */
@@ -62,7 +65,7 @@
   }
 
   function apiFetch(path, options) {
-    var url = apiBase() + path;
+    var url = apiUrl(path);
     var opts = options || {};
     opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
     return fetch(url, opts).then(function (res) {
