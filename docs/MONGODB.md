@@ -140,3 +140,13 @@ Open **http://localhost:8080/dashboard.html** (with `serve.py` + API running).
 3. View registered players, plays used, scores, and export CSV.
 
 On Vercel, add `ADMIN_KEY` to environment variables and open `https://your-app.vercel.app/dashboard.html`.
+
+### Custom domain (e.g. `airtrel-priority-plan.in` on static/S3 hosting)
+
+If the HTML is served from S3 or another static host, `/api/*` on that domain returns S3 **Access Denied** XML. The app uses `js/api-config.js` to call the API at **`https://api.airtrel-priority-plan.in`**.
+
+1. Deploy the API (with `MONGODB_URI`, `ADMIN_KEY`, etc.) to `api.airtrel-priority-plan.in`.
+2. Upload/redeploy static files to your CDN **including** `js/api-config.js`.
+3. Optional override in HTML: `<meta name="airtel-api-base" content="https://api.airtrel-priority-plan.in">`
+
+Ensure the API allows CORS from your static origin (`airtrel-priority-plan.in`).

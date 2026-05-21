@@ -5,25 +5,23 @@
   var currentPage = 1;
 
   function apiBase() {
-    if (typeof window.AIRTEL_API_BASE !== "undefined") {
-      return String(window.AIRTEL_API_BASE).replace(/\/$/, "");
-    }
-    var host = window.location && window.location.hostname;
-    var port = window.location && window.location.port;
-    if (host === "localhost" || host === "127.0.0.1") {
-      if (port === "8080" || port === "8000") {
-        return "";
-      }
-      return "http://localhost:3001";
-    }
-    return "";
+    return String(window.AIRTEL_API_BASE != null ? window.AIRTEL_API_BASE : "")
+      .replace(/\/$/, "");
   }
 
   function friendlyFetchError(err) {
     var msg = (err && err.message) || "Request failed";
     if (msg === "Failed to fetch") {
       return (
-        "Cannot reach the API. Run in two terminals: npm run api (port 3001) and npm run serve (port 8080), then refresh."
+        "Cannot reach the API. On localhost run: npm run api and python3 serve.py. On a custom domain, API must be deployed (e.g. Vercel)."
+      );
+    }
+    if (
+      msg.indexOf("AccessDenied") >= 0 ||
+      msg.indexOf("Access Denied") >= 0
+    ) {
+      return (
+        "This site is serving static files only. API calls must go to your Vercel deployment — reload after deploying js/api-config.js."
       );
     }
     return msg;
@@ -56,13 +54,33 @@
     bar.classList.toggle("hidden", !msg);
   }
 
+  function apiUrl(path) {
+    var key = getAdminKey();
+    if (!key) return path;
+    var sep = path.indexOf("?") >= 0 ? "&" : "?";
+    return path + sep + "key=" + encodeURIComponent(key);
+  }
+
+  function handleUnauthorized() {
+    setAdminKey("");
+    showMain(false);
+    $("auth-error").textContent =
+      "Invalid or missing admin key. Enter the same value as ADMIN_KEY in server/.env, then sign in again.";
+  }
+
   function apiFetch(path, options) {
     var opts = options || {};
+    var key = getAdminKey();
+    if (!key) {
+      return Promise.reject(
+        new Error("Not signed in. Enter your admin key below.")
+      );
+    }
     opts.headers = Object.assign(
-      { "Content-Type": "application/json", "x-admin-key": getAdminKey() },
+      { "Content-Type": "application/json", "x-admin-key": key },
       opts.headers || {}
     );
-    return fetch(apiBase() + path, opts).then(function (res) {
+    return fetch(apiBase() + apiUrl(path), opts).then(function (res) {
       var ct = (res.headers.get("content-type") || "").toLowerCase();
       var body =
         ct.indexOf("application/json") >= 0
@@ -73,11 +91,26 @@
                   "API route not found on port 8080. Restart the static server: lsof -ti :8080 | xargs kill && python3 serve.py"
                 );
               }
+              if (
+                t.indexOf("AccessDenied") >= 0 ||
+                t.indexOf("Access Denied") >= 0
+              ) {
+                throw new Error("Access Denied (static host has no /api — use Vercel API URL)");
+              }
               throw new Error(
                 t && t.length < 200 ? t : "HTTP " + res.status + " (non-JSON response)"
               );
             });
       return body.then(function (data) {
+        if (res.status === 401) {
+          var onMain =
+            $("admin-main") && !$("admin-main").classList.contains("hidden");
+          if (onMain) handleUnauthorized();
+          throw new Error(
+            (data && data.error) ||
+              "Invalid admin key. It must match ADMIN_KEY in server/.env (restart API after changing it)."
+          );
+        }
         if (!res.ok || (data && data.ok === false)) {
           throw new Error((data && data.error) || res.statusText || "Request failed");
         }
@@ -186,17 +219,51 @@
     $("admin-main").classList.toggle("hidden", !show);
   }
 
-  $("btn-auth").addEventListener("click", function () {
+  function attemptSignIn() {
     var key = $("admin-key").value.trim();
+    var btn = $("btn-auth");
     if (!key) {
       $("auth-error").textContent = "Enter admin key.";
       return;
     }
     setAdminKey(key);
     $("auth-error").textContent = "";
-    showMain(true);
-    refreshAll();
-  });
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Signing in…";
+    }
+    apiFetch("/api/admin/verify")
+      .then(function () {
+        showMain(true);
+        return refreshAll();
+      })
+      .then(function () {
+        $("auth-error").textContent = "";
+      })
+      .catch(function (err) {
+        setAdminKey("");
+        showMain(false);
+        $("auth-error").textContent = friendlyFetchError(err);
+      })
+      .finally(function () {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Sign in";
+        }
+      });
+  }
+
+  $("btn-auth").addEventListener("click", attemptSignIn);
+
+  var adminKeyInput = $("admin-key");
+  if (adminKeyInput) {
+    adminKeyInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        attemptSignIn();
+      }
+    });
+  }
 
   $("btn-logout").addEventListener("click", function () {
     setAdminKey("");
@@ -213,15 +280,171 @@
     }, 350);
   });
 
+  function normalizePhone(phone) {
+    var digits = String(phone || "").replace(/\D/g, "");
+    if (digits.indexOf("91") === 0 && digits.length === 12) {
+      digits = digits.slice(2);
+    }
+    if (digits.length >= 10) return digits.slice(-10);
+    return digits;
+  }
+
+  /** Parse phone-whitelist-map.json or phone-whitelist.json into { phone: row }. */
+  function parseWhitelistJson(data) {
+    var map = {};
+    if (!data) throw new Error("Empty JSON file.");
+
+    if (Array.isArray(data)) {
+      data.forEach(function (item) {
+        if (item && typeof item === "object" && item.phone != null) {
+          var p = normalizePhone(item.phone);
+          if (p.length === 10) map[p] = item;
+          return;
+        }
+        var pOnly = normalizePhone(item);
+        if (pOnly.length === 10) {
+          map[pOnly] = map[pOnly] || { olmId: "", storeId: "", name: "", circle: "" };
+        }
+      });
+      return map;
+    }
+
+    if (data.entries && Array.isArray(data.entries)) {
+      return parseWhitelistJson(data.entries);
+    }
+
+    if (data.map && typeof data.map === "object") {
+      return parseWhitelistJson(data.map);
+    }
+
+    if (typeof data === "object") {
+      Object.keys(data).forEach(function (key) {
+        var phone = normalizePhone(key);
+        if (phone.length !== 10) return;
+        var row = data[key];
+        if (row && typeof row === "object") {
+          map[phone] = row;
+        } else {
+          map[phone] = { olmId: "", storeId: "", name: "", circle: "" };
+        }
+      });
+      return map;
+    }
+
+    throw new Error("Unrecognized JSON format. Use phone-whitelist-map.json or a phone list.");
+  }
+
+  function readJsonFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          resolve(parseWhitelistJson(JSON.parse(reader.result)));
+        } catch (e) {
+          reject(new Error(file.name + ": " + (e.message || "Invalid JSON")));
+        }
+      };
+      reader.onerror = function () {
+        reject(new Error("Could not read " + file.name));
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function importMapInChunks(map) {
+    var keys = Object.keys(map);
+    if (!keys.length) {
+      return Promise.reject(new Error("No valid phone numbers found in file(s)."));
+    }
+    var CHUNK = 1200;
+    var batches = [];
+    var i;
+    for (i = 0; i < keys.length; i += CHUNK) {
+      var batch = {};
+      keys.slice(i, i + CHUNK).forEach(function (k) {
+        batch[k] = map[k];
+      });
+      batches.push(batch);
+    }
+    var totalRows = 0;
+    var chain = Promise.resolve();
+    batches.forEach(function (batch, idx) {
+      chain = chain.then(function () {
+        showStatus(
+          "Importing… batch " + (idx + 1) + " of " + batches.length + " (" + keys.length + " phones)",
+          false
+        );
+        return apiFetch("/api/admin/whitelist/import", {
+          method: "POST",
+          body: JSON.stringify({ map: batch })
+        }).then(function (data) {
+          totalRows += data.rows || Object.keys(batch).length;
+        });
+      });
+    });
+    return chain.then(function () {
+      return { rows: totalRows, cacheCount: keys.length };
+    });
+  }
+
+  function importFromSelectedFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return Promise.resolve();
+
+    var btn = $("btn-import-files");
+    if (btn) btn.disabled = true;
+    showStatus("Reading " + files.length + " file(s)…", false);
+
+    return files
+      .reduce(function (acc, file) {
+        return acc.then(function (merged) {
+          return readJsonFile(file).then(function (map) {
+            Object.keys(map).forEach(function (phone) {
+              merged[phone] = map[phone];
+            });
+            return merged;
+          });
+        });
+      }, Promise.resolve({}))
+      .then(function (merged) {
+        return importMapInChunks(merged);
+      })
+      .then(function (result) {
+        showStatus(
+          "Imported " + result.rows + " rows into MongoDB. Refreshing list…",
+          false
+        );
+        return refreshAll();
+      })
+      .then(function () {
+        showStatus("Import complete. Data loaded.", false);
+        setTimeout(function () {
+          showStatus("", false);
+        }, 4000);
+      })
+      .catch(function (err) {
+        showStatus(friendlyFetchError(err), true);
+      })
+      .finally(function () {
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  var jsonFileInput = $("json-file-input");
+  if (jsonFileInput) {
+    jsonFileInput.addEventListener("change", function () {
+      var files = jsonFileInput.files;
+      jsonFileInput.value = "";
+      importFromSelectedFiles(files);
+    });
+  }
+
   $("btn-import-files").addEventListener("click", function () {
-    if (
-      !confirm(
-        "Import all rows from phone-whitelist-map.json into MongoDB? This may take a minute."
-      )
-    ) {
+    if (jsonFileInput) {
+      jsonFileInput.click();
       return;
     }
-    showStatus("Importing from JSON files…");
+    showStatus("Importing from server JSON files…", false);
     apiFetch("/api/admin/whitelist/import-files", { method: "POST", body: "{}" })
       .then(function (data) {
         showStatus(

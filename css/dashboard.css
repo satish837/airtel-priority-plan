@@ -120,6 +120,18 @@ body {
   margin-bottom: 8px;
 }
 
+.auth-panel .auth-hint {
+  margin: 0 0 16px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.auth-panel .auth-hint code {
+  font-size: 0.72rem;
+  color: rgba(255, 140, 0, 0.9);
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

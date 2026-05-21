@@ -72,10 +72,13 @@ class Handler(SimpleHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0) or 0)
             body = self.rfile.read(length) if length else None
         headers = {"User-Agent": "AirtelLocalDev/1.0"}
-        for key in ("Content-Type", "x-admin-key"):
+        for key in ("Content-Type",):
             val = self.headers.get(key)
             if val:
                 headers[key] = val
+        admin_key = self.headers.get("x-admin-key") or self.headers.get("X-Admin-Key")
+        if admin_key:
+            headers["x-admin-key"] = admin_key
         req = urllib.request.Request(
             url,
             data=body,

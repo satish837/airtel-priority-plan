@@ -13,7 +13,8 @@
     <h2>Whitelist admin</h2>
     <p>Sign in with your admin key to manage eligible numbers in MongoDB.</p>
     <input id="admin-key" type="password" placeholder="Admin key" autocomplete="current-password">
-    <p id="auth-error" class="error"></p>
+    <p id="auth-error" class="error" role="alert"></p>
+    <p class="auth-hint">Use the same value as <code>ADMIN_KEY</code> in <code>server/.env</code>. Restart the API after you change it: <code>cd server && npm start</code></p>
     <button type="button" class="btn btn-primary" id="btn-auth" style="width:100%">Sign in</button>
     <p style="margin-top:1rem;font-size:0.85rem;opacity:0.85">
       <a href="dashboard.html">Player dashboard</a> ·
@@ -29,7 +30,8 @@
       </div>
       <div class="dashboard-actions">
         <input type="search" id="search" placeholder="Search phone, name, OLM ID…" aria-label="Search">
-        <button type="button" class="btn btn-ghost" id="btn-import-files" title="Import data/phone-whitelist-map.json into MongoDB">Import JSON files</button>
+        <input type="file" id="json-file-input" accept=".json,application/json" multiple hidden>
+        <button type="button" class="btn btn-ghost" id="btn-import-files" title="Select phone-whitelist-map.json or phone-whitelist.json">Import JSON files</button>
         <button type="button" class="btn btn-primary" id="btn-refresh">Refresh</button>
         <button type="button" class="btn btn-ghost" id="btn-logout">Sign out</button>
       </div>
@@ -99,6 +101,7 @@
     </section>
   </div>
 
+  <script src="js/api-config.js"></script>
   <script src="js/whitelist-admin.js"></script>
 </body>
 </html>

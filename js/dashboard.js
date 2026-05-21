@@ -4,18 +4,8 @@
   var STORAGE_KEY = "airtel_admin_key";
 
   function apiBase() {
-    if (typeof window.AIRTEL_API_BASE !== "undefined") {
-      return String(window.AIRTEL_API_BASE).replace(/\/$/, "");
-    }
-    var host = window.location && window.location.hostname;
-    var port = window.location && window.location.port;
-    if (host === "localhost" || host === "127.0.0.1") {
-      if (port === "8080" || port === "8000") {
-        return "";
-      }
-      return "http://localhost:3001";
-    }
-    return "";
+    return String(window.AIRTEL_API_BASE != null ? window.AIRTEL_API_BASE : "")
+      .replace(/\/$/, "");
   }
 
   function parseJsonResponse(res) {

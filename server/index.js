@@ -21,7 +21,7 @@ app.use(
     allowedHeaders: ["Content-Type", "x-admin-key"]
   })
 );
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "12mb" }));
 
 app.get("/api/health", async function (_req, res) {
   try {
@@ -149,6 +149,14 @@ app.get("/api/dashboard", async function (req, res) {
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+app.get("/api/admin/verify", function (req, res) {
+  if (!adminAuth.isAuthorized(req)) {
+    adminAuth.unauthorizedResponse(res);
+    return;
+  }
+  res.json({ ok: true });
 });
 
 app.get("/api/admin/whitelist/stats", async function (req, res) {

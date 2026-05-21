@@ -36,11 +36,6 @@
    * - "local" = localStorage only (no MongoDB)
    */
   if (typeof window.AIRTEL_API_BASE === "undefined") {
-    var host = window.location && window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") {
-      window.AIRTEL_API_BASE = "http://localhost:3001";
-    } else {
-      window.AIRTEL_API_BASE = "";
-    }
+    window.AIRTEL_API_BASE = "";
   }
 })();
