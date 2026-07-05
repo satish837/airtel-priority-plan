@@ -104,13 +104,12 @@
       if (!q) return true;
       return (
         (p.name || "").toLowerCase().indexOf(q) >= 0 ||
-        (p.phone || "").indexOf(q) >= 0 ||
-        (p.storeId || "").toLowerCase().indexOf(q) >= 0
+        (p.phone || "").indexOf(q) >= 0
       );
     });
     if (!rows.length) {
       tbody.innerHTML =
-        '<tr><td colspan="10" class="empty-msg">No players found</td></tr>';
+        '<tr><td colspan="9" class="empty-msg">No players found</td></tr>';
       return;
     }
     tbody.innerHTML = rows
@@ -122,9 +121,6 @@
           "</td>" +
           "<td>" +
           escapeHtml(p.phone) +
-          "</td>" +
-          "<td>" +
-          escapeHtml(p.storeId || "—") +
           "</td>" +
           "<td>" +
           escapeHtml(p.character || "—") +
@@ -171,13 +167,12 @@
       if (!q) return true;
       return (
         (r.name || "").toLowerCase().indexOf(q) >= 0 ||
-        (r.phone || "").indexOf(q) >= 0 ||
-        (r.storeId || "").toLowerCase().indexOf(q) >= 0
+        (r.phone || "").indexOf(q) >= 0
       );
     });
     if (!rows.length) {
       tbody.innerHTML =
-        '<tr><td colspan="8" class="empty-msg">No runs for this day</td></tr>';
+        '<tr><td colspan="7" class="empty-msg">No runs for this day</td></tr>';
       return;
     }
     tbody.innerHTML = rows
@@ -192,9 +187,6 @@
           "</td>" +
           "<td>" +
           escapeHtml(r.phone) +
-          "</td>" +
-          "<td>" +
-          escapeHtml(r.storeId || "—") +
           "</td>" +
           "<td><strong>" +
           r.priorityPoints +
@@ -259,7 +251,6 @@
     var headers = [
       "Name",
       "Phone",
-      "Store ID",
       "Character",
       "Plays Used",
       "Plays Left",
@@ -275,7 +266,6 @@
         [
           p.name,
           p.phone,
-          p.storeId,
           p.character,
           p.playsUsed,
           p.playsLeft,

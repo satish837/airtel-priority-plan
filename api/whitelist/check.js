@@ -17,20 +17,12 @@ module.exports = async function handler(req, res) {
       return;
     }
     phone = handlers.normalizePhone(phone);
-    var allowed = handlers.isPhoneWhitelisted(phone);
-    var meta = handlers.whitelistMetaForPhone(phone);
     res.setHeader("Cache-Control", "private, no-store, max-age=0");
     res.status(200).json({
       ok: true,
       phone: phone,
-      allowed: allowed,
-      whitelisted: allowed,
-      storeId: meta.storeId || "",
-      olmId: meta.olmId || "",
-      circle: meta.circle || "",
-      whitelistName: meta.name || "",
-      whitelistActive: handlers.isWhitelistActive(),
-      whitelistCount: handlers.whitelistSize()
+      allowed: true,
+      whitelisted: true
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });

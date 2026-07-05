@@ -119,41 +119,19 @@
       if (host && host !== "localhost" && host !== "127.0.0.1") {
         return Promise.resolve({
           canPlayToday: false,
-          left: 0,
-          whitelisted: false,
-          whitelistBlocked: true
+          left: 0
         });
       }
       return Promise.resolve({
         canPlayToday: getReplaysLeft() > 0,
         left: getReplaysLeft(),
         used: getPlaysUsed(),
-        playLimitReached: getReplaysLeft() <= 0,
-        whitelisted: true,
-        whitelistBlocked: false
+        playLimitReached: getReplaysLeft() <= 0
       });
     }
     return apiFetch(
       "/api/leads/status?phone=" + encodeURIComponent(phone)
     ).then(function (data) {
-      if (data.whitelistBlocked || data.whitelisted === false) {
-        apiCanPlayToday = false;
-        apiReplaysLeft = 0;
-        return {
-          phone: data.phone || phone,
-          day: data.day,
-          used: data.used || 0,
-          left: 0,
-          maxReplays: data.maxReplays || MAX_REPLAYS,
-          canPlayToday: false,
-          playLimitReached: true,
-          whitelisted: false,
-          whitelistBlocked: true,
-          storeId: data.storeId || "",
-          olmId: data.olmId || "",
-          whitelistName: data.whitelistName || ""
-        };
-      }
       applyPlayStatus(data);
       return {
         phone: data.phone,
@@ -162,12 +140,7 @@
         left: data.left,
         maxReplays: data.maxReplays || MAX_REPLAYS,
         canPlayToday: !!data.canPlayToday,
-        playLimitReached: !!data.playLimitReached,
-        whitelisted: true,
-        whitelistBlocked: false,
-        storeId: data.storeId || data.olmId || "",
-        olmId: data.olmId || data.storeId || "",
-        whitelistName: data.whitelistName || ""
+        playLimitReached: !!data.playLimitReached
       };
     });
   }
@@ -212,7 +185,6 @@
     return {
       name: user.name,
       phone: normalizePhone(user.phone),
-      storeId: user.storeId,
       coins: coins,
       priorityPoints: priorityPoints,
       fastLaneCoins: fastLaneCoins,
@@ -307,27 +279,19 @@
   function saveUser(user) {
     write("airtel_user", user);
     if (!useApi()) {
-      return Promise.reject(
-        new Error("Could not connect to game server to verify your number.")
-      );
+      return Promise.resolve(user);
     }
     return apiFetch("/api/leads", {
       method: "POST",
       body: JSON.stringify({
         name: user.name,
         phone: normalizePhone(user.phone),
-        storeId: user.storeId,
         character: user.character || "",
         day: todayKey()
       })
     }).then(function (data) {
       var ps = data.playStatus || (data.lead && data.lead.playStatus);
       if (ps) applyPlayStatus(ps);
-      var lead = data.lead;
-      if (lead && lead.storeId) {
-        user.storeId = lead.storeId;
-        write("airtel_user", user);
-      }
       return syncReplaysFromApi(user.phone).then(function () {
         return user;
       });
@@ -424,7 +388,6 @@
     var entry = {
       name: user.name,
       phone: phone,
-      storeId: user.storeId,
       coins: coins,
       priorityPoints: priorityPoints,
       fastLaneCoins: fastLaneCoins,

@@ -5,7 +5,9 @@
   "scripts": {
     "api": "npm --prefix server start",
     "serve": "python3 serve.py",
-    "api:install": "npm --prefix server install"
+    "api:install": "npm --prefix server install",
+    "mongodb:setup": "bash scripts/setup-mongodb.sh",
+    "mongodb:test": "node scripts/test-mongodb.js"
   },
   "dependencies": {
     "mongodb": "^6.12.0"

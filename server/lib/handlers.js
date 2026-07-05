@@ -1,9 +1,15 @@
 "use strict";
 
 const { getDb, ensureIndexes } = require("./db");
-const whitelist = require("./whitelist");
 
 const MAX_REPLAYS = 3;
+
+function normalizePhone(phone) {
+  var digits = String(phone || "").replace(/\D/g, "");
+  if (digits.indexOf("91") === 0 && digits.length === 12) digits = digits.slice(2);
+  if (digits.length >= 10) return digits.slice(-10);
+  return digits;
+}
 
 /** Calendar day for daily limits / scores (India default). Override with AIRTEL_DAY_TIMEZONE=UTC */
 function calendarDayInZone(d, zone) {
@@ -38,10 +44,6 @@ function adjacentDayKeys(ymd) {
     new Date(t).toISOString().slice(0, 10),
     new Date(t + DAY_MS).toISOString().slice(0, 10)
   ];
-}
-
-function normalizePhone(phone) {
-  return whitelist.normalizePhone(phone);
 }
 
 function sortBoard(board) {
@@ -107,100 +109,28 @@ async function syncLeadPlayFlags(db, phone, day) {
   return Object.assign({}, status, flags);
 }
 
-function whitelistFieldsForPhone(phone) {
-  var meta = whitelist.whitelistMetaForPhone(phone);
-  return {
-    storeId: meta.storeId || "",
-    olmId: meta.olmId || "",
-    circle: meta.circle || "",
-    whitelistName: meta.name || ""
-  };
-}
-
-function blockedWhitelistStatus(phone, day) {
-  day = day || todayKey();
-  return Object.assign(
-    {
-      phone: phone,
-      day: day,
-      used: 0,
-      left: 0,
-      maxReplays: MAX_REPLAYS,
-      canPlayToday: false,
-      playLimitReached: true,
-      whitelisted: false,
-      whitelistBlocked: true
-    },
-    whitelistFieldsForPhone(phone)
-  );
-}
-
-function assertPhoneWhitelisted(phone) {
-  if (!whitelist.isPhoneWhitelisted(phone)) {
-    throw new Error("This mobile number is not eligible to play.");
-  }
-}
-
-function normalizeStoreIdForCompare(id) {
-  return String(id || "").trim().toUpperCase();
-}
-
-/** OLM / Store ID from whitelist for this phone (may be empty in list-only mode). */
-function expectedStoreIdForPhone(phone) {
-  var meta = whitelist.whitelistMetaForPhone(phone);
-  return String(meta.storeId || meta.olmId || "").trim();
-}
-
-/**
- * When the whitelist has an OLM ID for this number, the user must type the same value
- * (case-insensitive). Skipped when the map has no store id for the phone.
- */
-function assertSubmittedStoreIdMatches(phone, submitted) {
-  var expected = expectedStoreIdForPhone(phone);
-  if (!expected) return;
-  var got = String(submitted || "").trim();
-  if (!got) {
-    throw new Error("OLM ID (Store ID) is required.");
-  }
-  if (normalizeStoreIdForCompare(got) !== normalizeStoreIdForCompare(expected)) {
-    throw new Error("The OLM ID does not match this mobile number.");
-  }
-}
-
 /** Check daily play limit from DB and persist flags on the lead record. */
 async function getLeadPlayStatus(phone, day) {
-  await whitelist.initWhitelist();
   phone = normalizePhone(phone);
   if (!phone) throw new Error("phone is required");
   day = day || todayKey();
-  if (!whitelist.isPhoneWhitelisted(phone)) {
-    return blockedWhitelistStatus(phone, day);
-  }
   var db = await getDb();
   await ensureIndexes(db);
   var status = await syncLeadPlayFlags(db, phone, day);
-  return Object.assign(
-    { whitelisted: true, whitelistBlocked: false },
-    status,
-    whitelistFieldsForPhone(phone)
-  );
+  return Object.assign({ phone: phone, day: day }, status);
 }
 
 async function upsertLead(body) {
-  await whitelist.initWhitelist();
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
-  assertPhoneWhitelisted(phone);
-  assertSubmittedStoreIdMatches(phone, body.storeId);
+  var name = String(body.name || "").trim();
+  if (!name) throw new Error("name is required");
   var db = await getDb();
   await ensureIndexes(db);
   var now = new Date();
   var day = body.day || todayKey(now);
-  var meta = whitelist.whitelistMetaForPhone(phone);
-  var canonicalStore = expectedStoreIdForPhone(phone);
   var doc = {
-    name: String(body.name || meta.name || "").trim(),
-    storeId: canonicalStore || String(body.storeId || "").trim(),
+    name: name,
     character: String(body.character || "").trim(),
     updatedAt: now
   };
@@ -216,7 +146,6 @@ async function upsertLead(body) {
   return {
     phone: phone,
     name: doc.name,
-    storeId: doc.storeId,
     character: doc.character,
     playStatus: playStatus
   };
@@ -239,12 +168,8 @@ async function getPlaysStatus(phone, day) {
 }
 
 async function usePlay(phone, day) {
-  await whitelist.initWhitelist();
   phone = normalizePhone(phone);
   day = day || todayKey();
-  if (!whitelist.isPhoneWhitelisted(phone)) {
-    return Object.assign({ ok: false }, blockedWhitelistStatus(phone, day));
-  }
   var db = await getDb();
   await ensureIndexes(db);
   var coll = db.collection("daily_plays");
@@ -299,20 +224,17 @@ async function usePlay(phone, day) {
 }
 
 async function submitScore(body) {
-  await whitelist.initWhitelist();
   var phone = normalizePhone(body.phone);
   if (!phone) throw new Error("phone is required");
-  assertPhoneWhitelisted(phone);
-  assertSubmittedStoreIdMatches(phone, body.storeId);
+  var name = String(body.name || "").trim();
+  if (!name) throw new Error("name is required");
   var day = body.day || todayKey();
   var coins = Number(body.coins) || 0;
   var priorityPoints = Number(body.priorityPoints) || 0;
   var fastLaneCoins = Number(body.fastLaneCoins) || 0;
-  var canonicalStore = expectedStoreIdForPhone(phone);
   var entry = {
     phone: phone,
-    name: String(body.name || "").trim(),
-    storeId: canonicalStore || String(body.storeId || "").trim(),
+    name: name,
     coins: coins,
     priorityPoints: priorityPoints,
     fastLaneCoins: fastLaneCoins,
@@ -527,10 +449,6 @@ module.exports = {
   MAX_REPLAYS: MAX_REPLAYS,
   todayKey: todayKey,
   normalizePhone: normalizePhone,
-  isPhoneWhitelisted: whitelist.isPhoneWhitelisted,
-  isWhitelistActive: whitelist.isWhitelistActive,
-  whitelistMetaForPhone: whitelist.whitelistMetaForPhone,
-  whitelistSize: whitelist.whitelistSize,
   upsertLead: upsertLead,
   getLeadPlayStatus: getLeadPlayStatus,
   getPlaysStatus: getPlaysStatus,

@@ -26,7 +26,11 @@
 
   if (host === "localhost" || host === "127.0.0.1") {
     if (port === "8080" || port === "8000") {
-      global.AIRTEL_API_BASE = "";
+      /* Default: localStorage (no MongoDB). Add ?api=1 when server/.env has a real MONGODB_URI. */
+      var useApi =
+        /(?:^|[?&])api=1(?:&|$)/.test(loc.search || "") ||
+        loc.search.indexOf("api=true") >= 0;
+      global.AIRTEL_API_BASE = useApi ? "" : "local";
     } else {
       global.AIRTEL_API_BASE = "http://localhost:3001";
     }
@@ -38,12 +42,20 @@
     return;
   }
 
-  /* API subdomain — same origin */
+  /*
+   * Split static/API deploy (legacy): HTML on S3, API on subdomain.
+   * Full Vercel deploy (game + /api on one project) uses same-origin "" below.
+   */
+  if (host === "airtrel-priority-plan.in" || host === "www.airtrel-priority-plan.in") {
+    global.AIRTEL_API_BASE = "https://api.airtrel-priority-plan.in";
+    return;
+  }
+
   if (host === "api.airtrel-priority-plan.in") {
     global.AIRTEL_API_BASE = "";
     return;
   }
 
-  /* Static site on airtrel-priority-plan.in → dedicated API host */
-  global.AIRTEL_API_BASE = "https://api.airtrel-priority-plan.in";
+  /* Custom domain or any other production host on same Vercel project */
+  global.AIRTEL_API_BASE = "";
 })(typeof window !== "undefined" ? window : this);
