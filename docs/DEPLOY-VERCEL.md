@@ -83,6 +83,17 @@ Open in browser:
 1. Vercel → **Settings → Domains** → add your domain
 2. No code changes needed — `js/api-config.js` uses same-origin `/api` on Vercel custom domains
 
+## 8. Multiple links with separate user data
+
+To host the same app on different URLs with isolated MongoDB data per campaign, see **[docs/MULTI-INSTANCE.md](MULTI-INSTANCE.md)**.
+
+Quick options:
+
+- **Separate Vercel projects** — set a different `MONGODB_DB_NAME` per project
+- **One project, many domains** — set `AIRTEL_INSTANCE_MAP=host1=db1,host2=db2`
+
+Verify after deploy: `curl https://your-domain.com/api/health` (check `dbName` in the response).
+
 ## Local vs production
 
 | | Local (`localhost:8080`) | Vercel |

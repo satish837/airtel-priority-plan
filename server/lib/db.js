@@ -1,8 +1,9 @@
 "use strict";
 
 const { MongoClient } = require("mongodb");
+const { getActiveDbName, DEFAULT_DB_NAME } = require("./instance");
 
-const DB_NAME = process.env.MONGODB_DB_NAME || "airtel_challenge";
+const DB_NAME = DEFAULT_DB_NAME;
 let clientPromise = null;
 
 function getUri() {
@@ -25,7 +26,7 @@ async function getClient() {
 
 async function getDb() {
   const client = await getClient();
-  return client.db(DB_NAME);
+  return client.db(getActiveDbName());
 }
 
 async function ensureIndexes(db) {

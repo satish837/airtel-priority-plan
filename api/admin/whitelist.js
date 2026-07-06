@@ -2,12 +2,14 @@
 
 const { applyCors, handleOptions } = require("../_cors");
 const { parseJsonBody } = require("../_body");
+const { withInstance } = require("../_instance");
 const whitelist = require("../../server/lib/whitelist");
 const whitelistAdmin = require("../../server/lib/whitelistAdmin");
 const adminAuth = require("../../server/lib/adminAuth");
 
 module.exports = async function handler(req, res) {
-  applyCors(res);
+  return withInstance(req, async function () {
+    applyCors(res);
   if (handleOptions(req, res)) return;
   if (!adminAuth.isAuthorized(req)) {
     adminAuth.unauthorizedResponse(res);
@@ -39,4 +41,5 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
+  });
 };

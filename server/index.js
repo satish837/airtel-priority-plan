@@ -6,6 +6,7 @@ const cors = require("cors");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const { getUri } = require("./lib/db");
+const { runWithHost, hostFromRequest, getActiveDbName } = require("./lib/instance");
 const handlers = require("./lib/handlers");
 const whitelist = require("./lib/whitelist");
 const whitelistAdmin = require("./lib/whitelistAdmin");
@@ -23,13 +24,21 @@ app.use(
 );
 app.use(express.json({ limit: "12mb" }));
 
-app.get("/api/health", async function (_req, res) {
+app.use(function (req, _res, next) {
+  runWithHost(hostFromRequest(req), function () {
+    next();
+  });
+});
+
+app.get("/api/health", async function (req, res) {
   try {
     await whitelist.initWhitelist();
     var stats = await whitelistAdmin.getWhitelistAdminStats();
     res.json({
       ok: true,
       mongoConfigured: !!getUri(),
+      dbName: getActiveDbName(),
+      host: hostFromRequest(req),
       phoneWhitelistActive: whitelist.isWhitelistActive(),
       phoneWhitelistRequired: whitelist.isWhitelistRequired(),
       phoneWhitelistCount: whitelist.whitelistSize(),
