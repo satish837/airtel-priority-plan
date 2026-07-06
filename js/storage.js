@@ -257,9 +257,14 @@
     return read("airtel_user", null);
   }
 
+  function persistUser(user) {
+    write("airtel_user", user);
+    return user;
+  }
+
   function saveUser(user, opts) {
     opts = opts || {};
-    write("airtel_user", user);
+    persistUser(user);
     if (!useApi()) {
       return Promise.resolve(user);
     }
@@ -444,6 +449,7 @@
     init: init,
     flushPendingScores: flushPendingScores,
     getUser: getUser,
+    persistUser: persistUser,
     saveUser: saveUser,
     checkPlayEligibility: checkPlayEligibility,
     canPlayToday: canPlayToday,

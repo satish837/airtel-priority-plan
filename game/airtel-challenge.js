@@ -176,10 +176,10 @@
       cb(cm);
       return;
     }
-    if (attempts > 80) return;
+    if (attempts > 40) return;
     setTimeout(function () {
       waitForCharactersManager(cb, attempts + 1);
-    }, 200);
+    }, 50);
   }
 
   function post(type, data) {
@@ -883,7 +883,9 @@
   }
 
   function hookApp(app) {
-    if (!app || state.hooked) return;
+    if (!app) return;
+    hookedApp = app;
+    if (state.hooked) return;
     state.hooked = true;
 
     if (typeof EventTypes !== "undefined") {
@@ -927,17 +929,22 @@
   }
 
   function waitForGame(cb) {
+    var app = hookedApp || getApp();
+    if (app && typeof EventTypes !== "undefined") {
+      cb(app);
+      return;
+    }
     var n = 0;
     var t = setInterval(function () {
       n++;
-      var app = getApp();
+      app = hookedApp || getApp();
       if (app && typeof EventTypes !== "undefined") {
         clearInterval(t);
         cb(app);
-      } else if (n > 300) {
+      } else if (n > 120) {
         clearInterval(t);
       }
-    }, 200);
+    }, 50);
   }
 
   var sessionStarted = false;
@@ -945,6 +952,7 @@
   var runBegun = false;
   var gameOverSent = false;
   var retryInProgress = false;
+  var hookedApp = null;
 
   /* In-world PRIORITY letters (mission 1 is Reach Distance — game never spawns them) */
   var letterLayer = null;
@@ -1207,8 +1215,10 @@
     }
   }
 
-  function beginRunUnstick(app) {
+  function beginRunUnstick(app, quick) {
     var ticks = 0;
+    var maxTicks = quick ? 6 : 12;
+    var interval = quick ? 80 : 150;
     var id = setInterval(function () {
       if (gameOverSent) {
         clearInterval(id);
@@ -1220,8 +1230,8 @@
       } catch (e) {}
       kickStartGame();
       suppressMissionBlockUi(app);
-      if (ticks >= 12) clearInterval(id);
-    }, 150);
+      if (ticks >= maxTicks) clearInterval(id);
+    }, interval);
   }
 
   window.addEventListener("message", function (e) {
@@ -1246,18 +1256,31 @@
     }
     resetAirtelSession();
     hookAnalytics();
-    waitForGame(function (app) {
+    function startRun(app) {
       hookApp(app);
-      function startRun() {
-        applyAirtelCharacter(sessionCharacterKey);
-        restartAirtelGameplay(app);
-      }
+      applyAirtelCharacter(sessionCharacterKey);
+      restartAirtelGameplay(app);
+    }
+    var app = hookedApp || getApp();
+    if (app && typeof EventTypes !== "undefined") {
       if (getCharactersManager()) {
-        startRun();
+        startRun(app);
       } else {
-        waitForCharactersManager(startRun);
+        waitForCharactersManager(function () {
+          startRun(app);
+        });
       }
-    });
+    } else {
+      waitForGame(function (readyApp) {
+        if (getCharactersManager()) {
+          startRun(readyApp);
+        } else {
+          waitForCharactersManager(function () {
+            startRun(readyApp);
+          });
+        }
+      });
+    }
   });
 
   function isAirtelEmbed() {
@@ -1322,7 +1345,7 @@
     }
     hideMissionBriefingOverlay(app);
     startMissionUiSuppressor(app);
-    beginRunUnstick(app);
+    beginRunUnstick(app, alreadyPrimed);
 
     try {
       if (typeof EventTypes !== "undefined") {
@@ -1331,16 +1354,22 @@
     } catch (e) {}
 
     kickStartGame();
+    [0, 40, 100].forEach(function (ms) {
+      setTimeout(kickStartGame, ms);
+    });
     beginPlaySessionTimer();
     startLetterSpawner(app);
-    [0, 120, 400, 900, 1600].forEach(function (ms) {
-      setTimeout(function () {
-        hideMissionBriefingOverlay(app);
-      }, ms);
-    });
+    if (!alreadyPrimed) {
+      [0, 120, 400, 900, 1600].forEach(function (ms) {
+        setTimeout(function () {
+          hideMissionBriefingOverlay(app);
+        }, ms);
+      });
+    }
+    pushHud();
     setTimeout(function () {
       if (!retryInProgress) pushHud();
-    }, 800);
+    }, alreadyPrimed ? 120 : 400);
     return true;
   }
 

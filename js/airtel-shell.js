@@ -246,10 +246,32 @@
     }
   }
 
+  var prefetchTimer = null;
+
+  function prefetchRegistration() {
+    if (prefetchTimer) clearTimeout(prefetchTimer);
+    prefetchTimer = setTimeout(function () {
+      prefetchTimer = null;
+      var phone =
+        ($("reg-phone") && $("reg-phone").value.trim().replace(/\s/g, "")) || "";
+      var name = ($("reg-name") && $("reg-name").value.trim()) || "";
+      if (!/^\d{10}$/.test(phone) || !name) return;
+      var user = {
+        name: name,
+        phone: phone,
+        character: defaultCharacterKey()
+      };
+      AirtelStorage.persistUser(user);
+      if (AirtelStorage.useApi()) {
+        AirtelStorage.saveUser(user, { skipSync: true }).catch(function () {});
+      }
+    }, 400);
+  }
+
   function runStartCountdown(done) {
     var overlay = $("run-countdown");
     var numEl = $("run-countdown-num");
-    if (!overlay || !numEl) {
+    if (!overlay || !numEl || gameLoaded) {
       if (done) done();
       return;
     }
@@ -257,7 +279,7 @@
     showPanel(null);
     setGameFrameVisible(true);
     showShellTryAgain(false);
-    var steps = [3, 2, 1];
+    var steps = ["GO!"];
     var step = 0;
     overlay.classList.remove("hidden");
     overlay.setAttribute("aria-hidden", "false");
@@ -268,12 +290,12 @@
         if (done) done();
         return;
       }
-      numEl.textContent = String(steps[step]);
+      numEl.textContent = steps[step];
       numEl.classList.remove("countdown-bump");
       void numEl.offsetWidth;
       numEl.classList.add("countdown-bump");
       step += 1;
-      countdownTimer = setTimeout(tick, 600);
+      countdownTimer = setTimeout(tick, 320);
     }
 
     tick();
@@ -290,32 +312,26 @@
     showPanel(null);
     renderLetters([]);
     resetRunHud();
-    postToGame(sessionPayload());
-    /* One retry if the iframe was not ready on first post */
-    setTimeout(function () {
-      postToGame(sessionPayload());
-    }, 600);
+    var payload = sessionPayload();
+    postToGame(payload);
+    [80, 200, 450, 900].forEach(function (ms) {
+      setTimeout(function () {
+        postToGame(payload);
+      }, ms);
+    });
   }
 
   function onSessionReady() {
     pendingSession = true;
+    beginPlayUi();
     runStartCountdown(function () {
       $("btn-start-register").disabled = false;
-      beginPlayUi();
       if (!gameLoaded) {
         $("register-error").textContent = "Game loading…";
+      } else {
+        $("register-error").textContent = "";
       }
     });
-  }
-
-  function onSessionFailed(err) {
-    $("btn-start-register").disabled = false;
-    $("register-error").textContent =
-      AirtelStorage.useApi()
-        ? (err && err.message) ||
-          "Could not save registration. Check API and try again."
-        : "Could not start. Try again.";
-    refreshRegistrationForm();
   }
 
   function startSession() {
@@ -333,14 +349,10 @@
       return;
     }
 
-    AirtelStorage.saveUser(user, { skipSync: true })
-      .then(function () {
-        return AirtelStorage.usePlay();
-      })
-      .then(function () {
-        onSessionReady();
-      })
-      .catch(onSessionFailed);
+    AirtelStorage.persistUser(user);
+    onSessionReady();
+    AirtelStorage.saveUser(user, { skipSync: true }).catch(function () {});
+    AirtelStorage.usePlay().catch(function () {});
   }
 
   function resolveRank(submitted, user) {
@@ -353,15 +365,53 @@
     return 0;
   }
 
+  function populateGameOverPanel(data, rank, rankPending) {
+    $("go-title").textContent =
+      data.reason === "complete" ? "Challenge Complete!" : "Game Over";
+    $("go-priority-score").textContent = data.priorityPoints || 0;
+    var totalCoins = (data.coins || 0) + (data.fastLaneCoins || 0);
+    var coinsDetail = $("go-coins-detail");
+    if (coinsDetail) {
+      if (totalCoins > 0) {
+        coinsDetail.textContent = "Includes " + totalCoins + " coins collected";
+        coinsDetail.hidden = false;
+      } else {
+        coinsDetail.textContent = "";
+        coinsDetail.hidden = true;
+      }
+    }
+    $("go-rank-msg").textContent = rankPending
+      ? "Updating your leaderboard rank…"
+      : "You rank #" + (rank > 0 ? rank : "—") + " on the leaderboard.";
+    var allPriority =
+      (data.lettersCollected || 0) >= LETTERS.length || !!data.fastLaneUnlocked;
+    var unlockEl = $("go-unlock-msg");
+    if (unlockEl) {
+      unlockEl.classList.toggle("hidden", !allPriority);
+      unlockEl.setAttribute("aria-hidden", allPriority ? "false" : "true");
+    }
+    var playAgain = $("btn-play-again");
+    if (playAgain) playAgain.disabled = false;
+  }
+
   function showGameOver(data) {
     if (!data) return;
     hideRunHud();
     postToGame({ type: "airtel:stop-letters" });
     sessionStarted = false;
-    setGameFrameVisible(false);
+
     var user = AirtelStorage.getUser();
+    var cachedRank = user ? AirtelStorage.getUserRank(user.phone) || 0 : 0;
+
+    populateGameOverPanel(data, cachedRank, !!user);
+    showPanel("panel-gameover");
+    setGameFrameVisible(false);
+    refreshRegistrationForm();
+
+    if (!user) return;
+
     var rankPromise;
-    if (user && !scoreSubmittedThisRun) {
+    if (!scoreSubmittedThisRun) {
       scoreSubmittedThisRun = true;
       rankPromise = AirtelStorage.submitScore(
         user,
@@ -376,51 +426,25 @@
       ).then(function (submitted) {
         return resolveRank(submitted, user);
       });
-    } else if (user) {
+    } else {
       rankPromise = AirtelStorage.getUserRankAsync(user.phone).then(function (r) {
         return r || 0;
       });
-    } else {
-      rankPromise = Promise.resolve(0);
     }
 
     rankPromise
       .then(function (rank) {
-        renderBoard();
-        refreshRegistrationForm();
-        $("go-title").textContent =
-          data.reason === "complete" ? "Challenge Complete!" : "Game Over";
-        $("go-priority-score").textContent = data.priorityPoints || 0;
-        var totalCoins = (data.coins || 0) + (data.fastLaneCoins || 0);
-        var coinsDetail = $("go-coins-detail");
-        if (coinsDetail) {
-          if (totalCoins > 0) {
-            coinsDetail.textContent =
-              "Includes " + totalCoins + " coins collected";
-            coinsDetail.hidden = false;
-          } else {
-            coinsDetail.textContent = "";
-            coinsDetail.hidden = true;
-          }
-        }
         $("go-rank-msg").textContent =
           "You rank #" + (rank > 0 ? rank : "—") + " on the leaderboard.";
-        var allPriority =
-          (data.lettersCollected || 0) >= LETTERS.length ||
-          !!data.fastLaneUnlocked;
-        var unlockEl = $("go-unlock-msg");
-        if (unlockEl) {
-          unlockEl.classList.toggle("hidden", !allPriority);
-          unlockEl.setAttribute("aria-hidden", allPriority ? "false" : "true");
-        }
-        var playAgain = $("btn-play-again");
-        if (playAgain) playAgain.disabled = false;
-        showPanel("panel-gameover");
+        renderBoard();
         if (AirtelStorage.useApi && AirtelStorage.useApi() && AirtelStorage.flushPendingScores) {
-          AirtelStorage.flushPendingScores().then(function () {
+          return AirtelStorage.flushPendingScores().then(function () {
             renderBoard();
           });
         }
+      })
+      .catch(function () {
+        populateGameOverPanel(data, cachedRank, false);
       });
   }
 
@@ -536,13 +560,19 @@
 
   var regPhone = $("reg-phone");
   if (regPhone) {
-    regPhone.addEventListener("blur", refreshRegistrationForm);
+    regPhone.addEventListener("blur", function () {
+      refreshRegistrationForm();
+      prefetchRegistration();
+    });
     regPhone.addEventListener("input", refreshRegistrationForm);
   }
 
   var regName = $("reg-name");
   if (regName) {
-    regName.addEventListener("input", refreshRegistrationForm);
+    regName.addEventListener("input", function () {
+      refreshRegistrationForm();
+      prefetchRegistration();
+    });
   }
 
   function reloadGameFrame(done) {
@@ -564,20 +594,10 @@
   }
 
   $("btn-play-again").addEventListener("click", function () {
-    AirtelStorage.usePlay();
+    AirtelStorage.usePlay().catch(function () {});
     reloadGameFrame(function () {
-      runStartCountdown(function () {
-        beginPlayUi();
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 1200);
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 2800);
-        setTimeout(function () {
-          postToGame(sessionPayload());
-        }, 5000);
-      });
+      beginPlayUi();
+      runStartCountdown(function () {});
     });
   });
 
