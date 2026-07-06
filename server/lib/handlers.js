@@ -2,7 +2,7 @@
 
 const { getDb, ensureIndexes } = require("./db");
 
-const MAX_REPLAYS = 3;
+const MAX_REPLAYS = null;
 
 function normalizePhone(phone) {
   var digits = String(phone || "").replace(/\D/g, "");
@@ -96,9 +96,9 @@ function playFlagsFromStatus(status, day) {
   return {
     playsDay: day,
     playsUsedToday: status.used,
-    playsLeftToday: status.left,
-    canPlayToday: status.left > 0,
-    playLimitReached: status.left <= 0 && status.used >= MAX_REPLAYS
+    playsLeftToday: null,
+    canPlayToday: true,
+    playLimitReached: false
   };
 }
 
@@ -162,8 +162,10 @@ async function getPlaysStatus(phone, day) {
     phone: phone,
     day: day,
     used: used,
-    left: Math.max(0, MAX_REPLAYS - used),
-    maxReplays: MAX_REPLAYS
+    left: null,
+    maxReplays: null,
+    canPlayToday: true,
+    playLimitReached: false
   };
 }
 
@@ -174,11 +176,7 @@ async function usePlay(phone, day) {
   await ensureIndexes(db);
   var coll = db.collection("daily_plays");
   var result = await coll.findOneAndUpdate(
-    {
-      phone: phone,
-      day: day,
-      $or: [{ used: { $exists: false } }, { used: { $lt: MAX_REPLAYS } }]
-    },
+    { phone: phone, day: day },
     {
       $inc: { used: 1 },
       $set: { updatedAt: new Date() },
@@ -186,40 +184,15 @@ async function usePlay(phone, day) {
     },
     { upsert: true, returnDocument: "after" }
   );
-  if (!result) {
-    var status = await getPlaysStatus(phone, day);
-    await syncLeadPlayFlags(db, phone, day);
-    return {
-      ok: false,
-      used: status.used,
-      left: status.left,
-      day: day,
-      canPlayToday: false,
-      playLimitReached: status.used >= MAX_REPLAYS
-    };
-  }
-  var used = result.used || 0;
-  if (used > MAX_REPLAYS) {
-    await coll.updateOne({ phone: phone, day: day }, { $set: { used: MAX_REPLAYS } });
-    await syncLeadPlayFlags(db, phone, day);
-    return {
-      ok: false,
-      used: MAX_REPLAYS,
-      left: 0,
-      day: day,
-      canPlayToday: false,
-      playLimitReached: true
-    };
-  }
-  var left = Math.max(0, MAX_REPLAYS - used);
+  var used = (result && result.used) || 0;
   await syncLeadPlayFlags(db, phone, day);
   return {
     ok: true,
     used: used,
-    left: left,
+    left: null,
     day: day,
-    canPlayToday: left > 0,
-    playLimitReached: left <= 0
+    canPlayToday: true,
+    playLimitReached: false
   };
 }
 
@@ -349,7 +322,6 @@ async function getDashboardData(day) {
       lastRunAt: null
     };
     var used = play && play.used ? play.used : 0;
-    var left = Math.max(0, MAX_REPLAYS - used);
     return {
       phone: phone,
       name: lead.name || "",
@@ -358,9 +330,9 @@ async function getDashboardData(day) {
       registeredAt: lead.createdAt || null,
       updatedAt: lead.updatedAt || null,
       playsUsed: used,
-      playsLeft: left,
-      canPlayToday: left > 0,
-      playLimitReached: left <= 0,
+      playsLeft: null,
+      canPlayToday: true,
+      playLimitReached: false,
       runsToday: st.runs,
       bestPriority: st.bestPriority,
       bestCoins: st.bestCoins,
@@ -380,7 +352,6 @@ async function getDashboardData(day) {
     var play = playsMap[phone];
     var st = scoreStats[phone];
     var used = play && play.used ? play.used : 0;
-    var leftOrphan = Math.max(0, MAX_REPLAYS - used);
     players.push({
       phone: phone,
       name: "",
@@ -389,9 +360,9 @@ async function getDashboardData(day) {
       registeredAt: null,
       updatedAt: null,
       playsUsed: used,
-      playsLeft: leftOrphan,
-      canPlayToday: leftOrphan > 0,
-      playLimitReached: leftOrphan <= 0,
+      playsLeft: null,
+      canPlayToday: true,
+      playLimitReached: false,
       runsToday: st.runs,
       bestPriority: st.bestPriority,
       bestCoins: st.bestCoins,

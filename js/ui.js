@@ -96,25 +96,13 @@
         return;
       }
       $("register-error").textContent = "";
-      if (AirtelStorage.getReplaysLeft() <= 0) {
-        $("register-error").textContent = "No plays left today. Come back tomorrow!";
-        return;
-      }
-      var consumePlay = AirtelStorage.usePlay || AirtelStorage.useReplay;
-      if (!consumePlay || !consumePlay()) return;
       AirtelStorage.saveUser({ name: name, phone: phone, storeId: storeId });
-      updateReplays();
+      AirtelStorage.usePlay();
       self.app.startGame();
     });
 
     $("btn-play-again").addEventListener("click", function () {
-      if (AirtelStorage.getReplaysLeft() <= 0) {
-        $("replay-msg").textContent = "No plays left today. Try again tomorrow!";
-        return;
-      }
-      var consumePlay = AirtelStorage.usePlay || AirtelStorage.useReplay;
-      if (!consumePlay || !consumePlay()) return;
-      updateReplays();
+      AirtelStorage.usePlay();
       self.app.startGame();
     });
 
@@ -197,10 +185,7 @@
     $("go-priority").textContent = result.priorityPoints;
     $("go-fastlane").textContent = result.fastLaneUnlocked ? "Yes — Nitro unlocked!" : "Not yet";
     $("promo-nugget").textContent = randomPromo();
-    $("replay-msg").textContent =
-      AirtelStorage.getReplaysLeft() > 0
-        ? AirtelStorage.getReplaysLeft() + " replay(s) left today"
-        : "No replays remaining today";
+    $("replay-msg").textContent = "Play again anytime.";
 
     var collected = result.collected.filter(Boolean).length;
     $("go-letters").textContent = collected + " / 8";
@@ -210,7 +195,7 @@
 
   function updateReplays() {
     var el = $("replays-left");
-    if (el) el.textContent = AirtelStorage.getReplaysLeft() + " plays left today";
+    if (el) el.hidden = true;
   }
 
   global.AirtelUI = AirtelUI;

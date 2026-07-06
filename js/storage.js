@@ -2,7 +2,8 @@
   "use strict";
 
   var LETTERS = ["P", "R", "I", "O", "R", "I", "T", "Y"];
-  var MAX_REPLAYS = 3;
+  /** @deprecated Play limits removed — kept for API compatibility only */
+  var MAX_REPLAYS = null;
 
   var apiReplaysLeft = null;
   var apiCanPlayToday = null;
@@ -110,38 +111,18 @@
     });
   }
 
-  /** Check play limit in MongoDB (lead + daily_plays flags). */
+  /** Plays are unlimited; always eligible when phone is present. */
   function checkPlayEligibility(phone) {
     phone = normalizePhone(phone);
     if (!phone) return Promise.resolve({ canPlayToday: false, left: 0 });
-    if (!useApi()) {
-      var host = global.location && global.location.hostname;
-      if (host && host !== "localhost" && host !== "127.0.0.1") {
-        return Promise.resolve({
-          canPlayToday: false,
-          left: 0
-        });
-      }
-      return Promise.resolve({
-        canPlayToday: getReplaysLeft() > 0,
-        left: getReplaysLeft(),
-        used: getPlaysUsed(),
-        playLimitReached: getReplaysLeft() <= 0
-      });
-    }
-    return apiFetch(
-      "/api/leads/status?phone=" + encodeURIComponent(phone)
-    ).then(function (data) {
-      applyPlayStatus(data);
-      return {
-        phone: data.phone,
-        day: data.day,
-        used: data.used,
-        left: data.left,
-        maxReplays: data.maxReplays || MAX_REPLAYS,
-        canPlayToday: !!data.canPlayToday,
-        playLimitReached: !!data.playLimitReached
-      };
+    return Promise.resolve({
+      phone: phone,
+      day: todayKey(),
+      used: getPlaysUsed(),
+      left: null,
+      maxReplays: null,
+      canPlayToday: true,
+      playLimitReached: false
     });
   }
 
@@ -276,7 +257,8 @@
     return read("airtel_user", null);
   }
 
-  function saveUser(user) {
+  function saveUser(user, opts) {
+    opts = opts || {};
     write("airtel_user", user);
     if (!useApi()) {
       return Promise.resolve(user);
@@ -292,6 +274,7 @@
     }).then(function (data) {
       var ps = data.playStatus || (data.lead && data.lead.playStatus);
       if (ps) applyPlayStatus(ps);
+      if (opts.skipSync) return user;
       return syncReplaysFromApi(user.phone).then(function () {
         return user;
       });
@@ -299,59 +282,49 @@
   }
 
   function getPlaysUsed() {
-    if (useApi() && apiReplaysLeft !== null) {
-      return Math.max(0, MAX_REPLAYS - apiReplaysLeft);
-    }
     var data = read("airtel_plays", {});
     if (data.day !== todayKey()) return 0;
     return data.used || 0;
   }
 
   function getReplaysLeft() {
-    if (useApi()) {
-      if (apiCanPlayToday === false) return 0;
-      if (apiReplaysLeft !== null) return apiReplaysLeft;
-    }
-    return Math.max(0, MAX_REPLAYS - getPlaysUsed());
+    return Infinity;
   }
 
   function canPlayToday() {
-    if (useApi() && apiCanPlayToday !== null) return apiCanPlayToday;
-    return getReplaysLeft() > 0;
+    return true;
   }
 
   function getReplaysLeftAsync() {
-    if (!useApi()) return Promise.resolve(getReplaysLeft());
-    var user = getUser();
-    if (!user || !user.phone) return Promise.resolve(getReplaysLeft());
-    return syncReplaysFromApi(user.phone).then(getReplaysLeft);
+    return Promise.resolve(Infinity);
   }
 
   function usePlay() {
     var user = getUser();
+    usePlayLocal();
     if (useApi() && user && user.phone) {
       return apiFetch("/api/plays", {
         method: "POST",
         body: JSON.stringify({ phone: normalizePhone(user.phone), day: todayKey() })
       })
-        .then(function (data) {
-          applyPlayStatus(data);
-          return !!data.ok;
+        .then(function () {
+          return true;
+        })
+        .catch(function () {
+          return true;
         });
     }
-    return Promise.resolve(usePlayLocal());
+    return Promise.resolve(true);
   }
 
   function usePlayLocal() {
     var data = read("airtel_plays", {});
     var day = todayKey();
     if (data.day !== day) data = { day: day, used: 0 };
-    if (data.used >= MAX_REPLAYS) return false;
     data.used += 1;
     write("airtel_plays", data);
-    apiReplaysLeft = Math.max(0, MAX_REPLAYS - data.used);
-    apiCanPlayToday = apiReplaysLeft > 0;
-    apiPlayLimitReached = !apiCanPlayToday;
+    apiCanPlayToday = true;
+    apiPlayLimitReached = false;
     return true;
   }
 
@@ -361,9 +334,9 @@
 
   function resetDailyPlays() {
     write("airtel_plays", { day: todayKey(), used: 0 });
-    apiReplaysLeft = MAX_REPLAYS;
     apiCanPlayToday = true;
     apiPlayLimitReached = false;
+    apiReplaysLeft = null;
     var user = getUser();
     if (!useApi() || !user || !user.phone) return Promise.resolve();
     return syncReplaysFromApi(user.phone);

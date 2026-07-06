@@ -1188,7 +1188,7 @@
     if (typeof MissionsManager === "undefined" || !MissionsManager.getInstance) {
       setTimeout(function () {
         primeGameplay(app);
-      }, 400);
+      }, 150);
       return;
     }
     try {
@@ -1201,6 +1201,7 @@
       app.timeScale = 0;
       hideMissionBriefingOverlay(app);
       startMissionUiSuppressor(app);
+      applyAirtelCharacter(sessionCharacterKey);
     } catch (e) {
       console.warn("Airtel: primeGameplay failed", e);
     }
@@ -1219,8 +1220,8 @@
       } catch (e) {}
       kickStartGame();
       suppressMissionBlockUi(app);
-      if (ticks >= 40) clearInterval(id);
-    }, 350);
+      if (ticks >= 12) clearInterval(id);
+    }, 150);
   }
 
   window.addEventListener("message", function (e) {
@@ -1247,10 +1248,15 @@
     hookAnalytics();
     waitForGame(function (app) {
       hookApp(app);
-      waitForCharactersManager(function () {
+      function startRun() {
         applyAirtelCharacter(sessionCharacterKey);
         restartAirtelGameplay(app);
-      });
+      }
+      if (getCharactersManager()) {
+        startRun();
+      } else {
+        waitForCharactersManager(startRun);
+      }
     });
   });
 
@@ -1296,7 +1302,7 @@
     hideMissionFailUi();
     runBegun = true;
     gameOverSent = false;
-    gameplayPrimed = false;
+    var alreadyPrimed = gameplayPrimed;
     gameplayWasRunning = false;
 
     if (app._airtelLetterTick) {
@@ -1310,7 +1316,10 @@
     applyAirtelCharacter(sessionCharacterKey);
     dismissNativeResultUi(app);
     resetGameStateToRunning(app);
-    launchFreshMission(app);
+    if (!alreadyPrimed) {
+      gameplayPrimed = false;
+      launchFreshMission(app);
+    }
     hideMissionBriefingOverlay(app);
     startMissionUiSuppressor(app);
     beginRunUnstick(app);
@@ -1367,7 +1376,6 @@
     clearEndTimers();
     gameOverSent = false;
     runBegun = false;
-    gameplayPrimed = false;
     gameplayWasRunning = false;
     lettersEnabled = false;
     resetProgress();
@@ -1399,9 +1407,7 @@
         app.timeScale = 0;
       } catch (e) {}
       /* Preload mission 1 assets during registration to avoid freeze on briefing */
-      setTimeout(function () {
-        primeGameplay(app);
-      }, 1500);
+      primeGameplay(app);
     }
     signalLoaded();
     if (!isAirtelEmbed()) {

@@ -127,11 +127,10 @@
           "</td>" +
           "<td>" +
           p.playsUsed +
-          " / " +
-          (p.playsUsed + p.playsLeft) +
-          (p.canPlayToday === false
-            ? ' <span class="badge badge-no">blocked</span>'
-            : ' <span class="badge badge-yes">can play</span>') +
+          (p.playsLeft != null
+            ? " / " + (p.playsUsed + p.playsLeft)
+            : " plays") +
+          ' <span class="badge badge-yes">unlimited</span>' +
           "</td>" +
           "<td>" +
           p.runsToday +
